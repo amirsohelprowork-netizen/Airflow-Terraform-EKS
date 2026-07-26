@@ -26,7 +26,8 @@ The second pipeline is the **Application Pipeline**. When a developer writes a n
 
 **Sarah**: Spot on. Immutability is critical for reliability. Let's talk about security. How is your GitHub Actions pipeline authenticating to AWS? Did you create an IAM User and put the Access Keys in GitHub Secrets?
 
-**Alex**: Definitely not. Storing long-lived static credentials like Access Keys is a major security risk. Instead, I used **OIDC (OpenID Connect)**. I configured AWS to trust my specific GitHub repository. When the pipeline runs, GitHub requests a temporary, short-lived token from AWS. Once the deployment is finished, the token expires automatically. There are no passwords to steal or rotate.
+**Alex**: That depends on which pipeline we are talking about! This is a classic "chicken-and-egg" bootstrap problem. For the **Application Pipeline** (Phase 2), I absolutely used **OIDC (OpenID Connect)**. I configured AWS to trust my specific GitHub repository, so GitHub just requests a temporary, short-lived token from AWS to deploy the DAGs. There are no passwords to steal. 
+However, for the initial **Infrastructure Pipeline** (Phase 1), I *did* have to use an IAM User Access Key temporarily. Why? Because the OIDC trust relationship itself is created *by* Terraform! Terraform needs access keys to build the OIDC role before Airflow can use it. In a true corporate environment, a dedicated security team would bootstrap the OIDC role for me, but for a standalone project, you have to use keys for the initial build.
 
 **Sarah**: I love hearing that. What about Airflow itself? Airflow needs to write task logs to an S3 bucket. How did you grant those Kubernetes Pods permission to talk to S3?
 

@@ -68,9 +68,12 @@ Once Phase 1 successfully completes, your AWS infrastructure is ready. Now we de
 
 ---
 
-## 🎉 Step 5: Success!
+## 🎉 Step 5: Success & Access!
 
 Congratulations! You now have a production-grade Airflow deployment.
+
+1. **Get the URL**: Open the successful **Phase 2 GitHub Actions Run**, click on the very last step called `🚀 Get Airflow URL`. It will print your live `http://...` link!
+2. **Login**: Open the URL in your browser. The default credentials are `admin` / `admin`.
 
 - Every time you push changes to `dags/`, GitHub Actions will safely upgrade your EKS cluster without downtime.
 - Your tasks are isolated using the `KubernetesExecutor`.

@@ -2,10 +2,13 @@
 # CI replaces the image repository/tag and applies a generated metadata secret.
 executor: KubernetesExecutor
 
+# Static Webserver Secret Key to prevent dynamic key warnings and webserver restarts
+webserverSecretKey: "AirflowEnterpriseStaticWebserverSecretKey2026!"
+
 images:
   airflow:
-    repository: REPLACE_AT_DEPLOYMENT
-    tag: REPLACE_AT_DEPLOYMENT
+    repository: apache/airflow
+    tag: 2.9.2
     pullPolicy: IfNotPresent
 
 postgresql:
@@ -24,9 +27,7 @@ dags:
 webserver:
   replicas: 2
   service:
-    type: ClusterIP
-  defaultUser:
-    enabled: false
+    type: LoadBalancer
 
 scheduler:
   replicas: 2
@@ -49,11 +50,9 @@ config:
 
 env:
   - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
-    value: REPLACE_AIRFLOW_LOG_S3_URI
+    value: s3://airflow-enterprise-demo-airflow-20260726152206799300000005/logs
   - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
-    valueFrom:
-      fieldRef:
-        fieldPath: metadata.namespace
+    value: airflow
 
 # Keep control-plane services on resilient on-demand nodes. Task pods are
 # configured separately by a pod template to use the worker node group.
@@ -62,5 +61,9 @@ nodeSelector:
 
 workers:
   resources:
-    requests: { cpu: "500m", memory: "1Gi" }
-    limits: { cpu: "2", memory: "4Gi" }
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+    requests:
+      cpu: "500m"
+      memory: "1Gi"

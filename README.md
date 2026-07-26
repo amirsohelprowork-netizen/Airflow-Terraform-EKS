@@ -1,6 +1,11 @@
-# Enterprise Airflow reference demo on Amazon EKS
+# 🚀 Enterprise Airflow on AWS EKS Blueprint
 
-This repository is a production-shaped demonstration of Apache Airflow on Amazon EKS using an **Infrastructure as Code (IaC) and CI/CD** approach. 
+[![Terraform](https://img.shields.io/badge/Terraform-1.6+-623CE4.svg?logo=terraform)](https://www.terraform.io/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.30-326ce5.svg?logo=kubernetes)](https://kubernetes.io/)
+[![Apache Airflow](https://img.shields.io/badge/Apache%20Airflow-2.9.1-017CEE.svg?logo=apache-airflow)](https://airflow.apache.org/)
+[![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg?logo=github-actions)](https://github.com/features/actions)
+
+This repository is a production-grade, open-source blueprint for deploying **Apache Airflow on Amazon EKS (Elastic Kubernetes Service)** using an **Infrastructure as Code (IaC)** and **CI/CD** approach. It is heavily optimized for enterprise scalability, security, and immutability. 
 
 It is designed as an open-source template for deploying:
 - Kubernetes task isolation

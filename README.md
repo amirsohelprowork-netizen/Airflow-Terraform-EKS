@@ -31,9 +31,33 @@ GitHub Actions (OIDC) → ECR immutable Airflow image → EKS + Helm
                                              RDS PostgreSQL + S3 remote logs
 ```
 
-This code has **not** been applied; it cannot incur new AWS charges until you
-run Terraform apply.
+## 🛠️ Technology Stack & Services Used
 
+### ⚙️ Automation & Orchestration
+1. **GitHub**: Source code hosting and version control.
+2. **GitHub Actions**: Acts as our "robot assembly line" (CI/CD) to automatically build the infrastructure and deploy the Docker images without human intervention.
+3. **Terraform**: Infrastructure as Code (IaC) to build AWS infrastructure predictably and enforce version control over our physical architecture.
+
+### ☁️ Compute & Application
+4. **Amazon EKS (Elastic Kubernetes Service)**: The core compute engine. EKS perfectly orchestrates Airflow, automatically spinning up new worker nodes when thousands of tasks are queued, and isolating each task into its own Pod (`KubernetesExecutor`).
+5. **Amazon EC2**: The underlying virtual machines that act as the "worker nodes" in the EKS cluster.
+6. **Docker**: Packages our DAGs and Python dependencies into a standardized, **immutable** container.
+7. **Helm**: The package manager for Kubernetes. It installs the complex Airflow ecosystem into EKS with a single command.
+
+### 💾 Storage & Databases
+8. **Amazon RDS (PostgreSQL)**: Airflow's "memory." Tracks the state of every DAG, user logins, and connections. Amazon automatically handles backups, updates, and failures.
+9. **Amazon ECR**: A secure, private registry to store the Airflow Docker images we build in Phase 2.
+10. **Amazon S3**: Used for two critical things: 
+    - Securely storing Terraform's remote "State File."
+    - Storing Airflow's remote task logs, so they aren't lost when Kubernetes Pods are destroyed.
+11. **Amazon DynamoDB**: A lightning-fast NoSQL database used purely for **Terraform State Locking** to prevent pipeline race conditions.
+
+### 🔒 Networking & Security
+12. **Amazon VPC**: The virtual "fence" around our infrastructure. EKS Nodes and the RDS Database are in **Private Subnets**, making them unreachable from the public internet.
+13. **AWS ELB (Elastic Load Balancer)**: Automatically created by Kubernetes `ingress-nginx` to securely route browser traffic to the internal Airflow Webserver.
+14. **AWS IAM**: Enforces "Least Privilege" security:
+    - **OIDC (OpenID Connect)**: Allows GitHub Actions to deploy without static passwords.
+    - **IRSA (IAM Roles for Service Accounts)**: Allows Kubernetes Pods to write to S3 without static passwords.
 ## Why KubernetesExecutor
 
 Each task runs in an isolated Kubernetes Pod with defined CPU/memory limits.

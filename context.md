@@ -1,106 +1,76 @@
 # Project Context & Progress Log
 
 ## Project Summary
-- **Goal:** IaC and CI/CD pipeline for deploying an Apache Airflow environment on AWS for testing/demo purposes.
+- **Goal:** Production-shaped Enterprise Apache Airflow deployment on Amazon EKS using Terraform, Helm, and GitHub Actions OIDC.
 - **GitHub Repository:** [Airflow_CICD](https://github.com/amirsohelprowork-netizen/Airflow_CICD.git)
 - **Deployment Architecture:**
-  - **IaC:** Terraform (AWS Provider)
-  - **Host:** AWS EC2 (`t3.small` - Free Tier eligible: 2 vCPU, 2GB RAM + 4GB Swap configured)
-  - **Container Runtime:** Docker Compose (`apache/airflow:2.9.2` with LocalExecutor + `postgres:15-alpine` metadata DB)
-  - **CI/CD:** GitHub Actions (Automated DAG syntax validation + SSH deployment to EC2)
+  - **IaC:** Terraform (`terraform-aws-modules` for EKS & VPC, AWS RDS PostgreSQL, S3 Logs, ECR, OIDC)
+  - **Host / Orchestrator:** Amazon EKS (Kubernetes)
+  - **Executor:** `KubernetesExecutor` (Isolated per-task Pod execution)
+  - **Container Packaging:** Immutable SHA-tagged Docker images built via Dockerfile and pushed to ECR.
+  - **Deployment Mechanism:** Helm chart deployments via GitHub Actions OIDC (keyless authentication).
 
 ---
 
-## Current Status: ✅ LIVE & WORKING
+## Current Status: ✅ CODE COMPLETE & VALIDATED
 
-The Airflow cluster is **fully deployed and operational**.
-
-- **Airflow Web UI URL:** [http://44.217.173.170:8080](http://44.217.173.170:8080)
-- **Public IP:** `44.217.173.170`
-- **Airflow UI Credentials:**
-  - **Username:** `admin`
-  - **Password:** `AirflowAdmin123!`
-- **SSH Access:**
-  ```powershell
-  ssh -i terraform/airflow-key.pem ec2-user@44.217.173.170
-  ```
+- **Terraform Validation:** Passed (`terraform validate` -> `Success! The configuration is valid.`)
+- **Git Status:** Fully committed and synchronized with GitHub `main` branch.
+- **Active AWS Infrastructure:** **0 resources active** (No ongoing AWS charges).
 
 ---
 
-## Chronological Journey & What Happened So Far
+## Complete Project Components
 
-1. **Initial Requirement:**
-   - User requested IaC + CI/CD for deploying Airflow on AWS within a $100 budget.
+1. **Terraform IaC (`terraform/`):**
+   - `main.tf`: Defines EKS cluster, node groups (control plane system nodes + dynamic worker nodes), RDS PostgreSQL database, S3 log bucket, ECR repository, and VPC networking.
+   - `github_oidc.tf`: Configures AWS IAM OpenID Connect (OIDC) identity provider and least-privilege IAM roles for GitHub Actions.
+   - `variables.tf` & `outputs.tf`: Configurable parameters and outputs for cluster name, ECR repository URL, IAM role ARNs.
 
-2. **Phase 1 (AWS MWAA Attempt):**
-   - Designed and created full Terraform IaC for Managed Workflows for Apache Airflow (MWAA) in `us-east-1` (VPC, private subnets, NAT Gateway, S3 bucket, IAM roles).
-   - Ran `terraform apply`.
-   - **Error Encountered:** `SubscriptionRequiredException: The AWS Access Key Id needs a subscription for the service`.
-   - Root cause: AWS account type/free tier restricts MWAA access without prior subscription activation in the console.
+2. **Kubernetes & Helm (`helm/airflow/`):**
+   - `values.yaml`: Production-shaped Helm configuration for Airflow with `KubernetesExecutor`, remote S3 logging, and resource limits.
+   - `pod_template.yaml`: Pod template specification used by `KubernetesExecutor` to spawn task pods on demand.
 
-3. **Phase 2 (Pivot to EC2 + Docker Compose):**
-   - Destroyed all MWAA resources (`terraform destroy`).
-   - Refactored Terraform code to provision an EC2 instance in a single public subnet (saving costs, avoiding NAT Gateway fees).
-   - Created `user_data.sh` script to automate Docker, Docker Compose, 4GB swap file setup, and Airflow startup.
-   - **Error Encountered:** `t3.medium` and `t2.micro` instances were rejected by AWS API as not free-tier eligible for this specific account.
-   - Queried eligible instances: `aws ec2 describe-instance-types --filters "Name=free-tier-eligible,Values=true"`
-   - Found `t3.small` (2 vCPU, 2GB RAM) is free-tier eligible on this account.
+3. **Containerization (`docker/`):**
+   - `Dockerfile`: Bakes DAGs and dependencies into an immutable container image for zero-downtime, deterministic releases.
 
-4. **Phase 3 (Successful Deployment):**
-   - Deployed EC2 instance (`t3.small`) using `terraform apply`.
-   - Configured 4GB swap space and memory limits in `docker-compose.yml` to ensure Airflow runs smoothly on 2GB RAM.
-   - Fixed Windows SSH key permissions for `terraform/airflow-key.pem`.
-   - Verified containers via SSH: `airflow-webserver` (healthy), `airflow-scheduler` (healthy), `postgres` (healthy). Returned HTTP 200 on `http://44.217.173.170:8080`.
-   - Pushed complete codebase to GitHub repository: `main` branch.
+4. **CI/CD Pipeline (`.github/workflows/`):**
+   - `deploy-airflow-eks.yml`: Automates Python DAG syntax checks, Docker image build & push to ECR, and Helm upgrade on EKS via OIDC.
 
----
+5. **DAGs & Load Testing (`dags/`):**
+   - `example_dag.py`: Base Hello World test DAG.
+   - `controlled_scale_test.py`: Dynamic task-expansion benchmark DAG for testing Kubernetes scaling (100–500 tasks).
 
-## File & Repository Structure
-
-```
-Airflow_full_deploy/
-├── .github/workflows/
-│   ├── deploy-dags.yml      # CI/CD pipeline: validates Python DAG syntax & copies to EC2 via SSH
-│   └── terraform.yml        # CI/CD pipeline for Terraform plan/apply
-├── dags/
-│   └── example_dag.py       # Sample Hello World DAG
-├── requirements/
-│   └── requirements.txt     # Python requirements for Airflow
-├── scripts/
-│   └── validate_dags.py     # Script used by GitHub Actions to validate DAG syntax
-├── terraform/
-│   ├── main.tf              # Provider configuration (AWS, TLS, Local)
-│   ├── variables.tf         # Input variables (defaults to t3.small, us-east-1)
-│   ├── outputs.tf           # Output IPs, SSH commands, URLs
-│   ├── vpc.tf               # Public subnet, IGW, Route tables
-│   ├── security_groups.tf   # Ports 22 (SSH) and 8080 (Airflow UI) open
-│   ├── ec2.tf               # EC2 instance definition + SSH Key creation
-│   ├── user_data.sh         # EC2 bootstrap script (Swap + Docker + Airflow)
-│   ├── airflow-key.pem      # SSH Private Key (ignored in git)
-│   └── terraform.tfvars     # Local variables overriding defaults
-├── .gitignore
-├── README.md
-└── context.md               # This context document
-```
+6. **Automation & Operations (`scripts/` & `docs/`):**
+   - `bootstrap-airflow-secrets.ps1`: Automated PowerShell script to populate Kubernetes secrets (DB credentials, Fernet key) post-Terraform apply.
+   - `destroy-enterprise-demo.ps1`: Safe tear-down script to destroy all EKS/RDS infrastructure after a demo.
+   - `enterprise-demo-runbook.md`: Detailed demonstration runbook.
 
 ---
 
-## Next Steps / GitHub CI/CD Configuration
+## How to Spin Up / Test the Stack
 
-To enable automatic DAG deployment whenever a commit is pushed to `main`:
+1. **Provision Infrastructure:**
+   ```powershell
+   cd terraform
+   copy terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars to specify region and admin IP
+   terraform init
+   terraform apply
+   ```
 
-1. Go to GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions**.
-2. Add the following repository secrets:
-   - `AIRFLOW_HOST`: `44.217.173.170`
-   - `SSH_PRIVATE_KEY`: Paste the full contents of `c:\Users\amirs\Airflow_full_deploy\terraform\airflow-key.pem`
-3. Push changes to `dags/` on `main` branch — GitHub Actions will validate and deploy to `/opt/airflow/dags/` on EC2.
+2. **Bootstrap Secrets:**
+   ```powershell
+   .\scripts\bootstrap-airflow-secrets.ps1
+   ```
 
----
+3. **Configure GitHub Secrets & Variables:**
+   Set `AWS_REGION`, `EKS_CLUSTER_NAME`, `ECR_REPOSITORY`, `AIRFLOW_LOG_BUCKET`, and `AWS_DEPLOY_ROLE_ARN` in **GitHub Settings → Secrets and Variables → Actions**.
 
-## Cleanup Command (When Done Testing)
+4. **Deploy & Benchmark:**
+   Push a commit to `main` to trigger the pipeline, then run `controlled_kubernetes_scale_test` in the Airflow UI.
 
-To avoid ongoing AWS charges, run from `terraform/` directory:
-```powershell
-cd terraform
-terraform destroy -auto-approve
-```
+5. **Teardown (Immediate Cleanup):**
+   ```powershell
+   .\scripts\destroy-enterprise-demo.ps1 -Confirm DESTROY-EKS-DEMO
+   ```

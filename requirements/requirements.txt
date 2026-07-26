@@ -1,9 +1,9 @@
 # ================================================
-# Python requirements for MWAA Airflow environment
+# Python requirements for Airflow on EKS
 # Add any additional packages your DAGs need here
 # ================================================
-# Note: apache-airflow is already installed by MWAA
-# Only add extra packages your DAGs require
+# Note: apache-airflow is already installed in the base image.
+# Only add extra packages your DAGs require.
 
 # Common data engineering packages (uncomment as needed)
 # pandas==2.1.4

@@ -1,6 +1,6 @@
 # DAGs are baked into a versioned, immutable image. CI tags every deployment
 # with the Git commit SHA so rollback is a Helm image-tag change.
-FROM apache/airflow:3.0.6
+FROM apache/airflow:3.2.2
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*

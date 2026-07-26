@@ -1,7 +1,7 @@
 """
 DAG Validation Script
 Validates all DAG files for syntax errors and import issues.
-Used in CI/CD pipeline before deploying to MWAA.
+Used in CI/CD pipeline before deploying to EKS.
 """
 
 import importlib.util

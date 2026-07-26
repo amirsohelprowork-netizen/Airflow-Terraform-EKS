@@ -1,34 +1,53 @@
-# Enterprise-demo values for the official Apache Airflow Helm chart.
-# CI replaces the image repository/tag and applies a generated metadata secret.
+# =============================================================================
+# Apache Airflow 2.10.5 — Production-Grade Enterprise Helm Values
+# Helm Chart: apache-airflow/airflow v1.16.0
+# =============================================================================
+
 executor: KubernetesExecutor
 
-# Static Webserver Secret Key to prevent dynamic key warnings and webserver restarts
+# ── Static Webserver Secret Key ──────────────────────────────────────────────
+# Prevents the dynamic-key warning and unnecessary webserver restarts.
 webserverSecretKey: "AirflowEnterpriseStaticWebserverSecretKey2026!"
 
+# ── Airflow Image ────────────────────────────────────────────────────────────
 images:
   airflow:
     repository: apache/airflow
-    tag: 2.10.5
+    tag: 3.2.2
     pullPolicy: IfNotPresent
 
+# ── External RDS PostgreSQL (no in-cluster Postgres) ─────────────────────────
 postgresql:
   enabled: false
 
 data:
-  # Created by scripts/bootstrap-airflow-secrets.ps1. Secret key: connection.
-  metadataSecretName: airflow-metadata
+  metadataSecretName: airflow-metadata   # created by bootstrap-airflow-secrets.ps1
 
+# ── DAGs ─────────────────────────────────────────────────────────────────────
 dags:
   persistence:
     enabled: false
   gitSync:
     enabled: false
 
+# ── Webserver ────────────────────────────────────────────────────────────────
 webserver:
-  replicas: 2
+  replicas: 1                            # single replica is fine for demo
   service:
     type: ClusterIP
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 2Gi   }
+  defaultUser:
+    enabled: true
+    role: Admin
+    username: admin
+    password: admin
+    email: admin@example.com
+    firstName: Admin
+    lastName: User
 
+# ── Ingress via NGINX Ingress Controller (HTTPS) ────────────────────────────
 ingress:
   web:
     enabled: true
@@ -36,46 +55,64 @@ ingress:
     annotations:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-      nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
-      nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    hosts:
-      - name: "a90d01a85191f4c7882fe9b66c0ab5c7-232742411.us-east-1.elb.amazonaws.com"
+    host: ""                             # accept any hostname
 
+# ── Scheduler ────────────────────────────────────────────────────────────────
 scheduler:
-  replicas: 2
+  replicas: 1
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 2Gi   }
 
+# ── Triggerer ────────────────────────────────────────────────────────────────
+triggerer:
+  replicas: 1
+  persistence:
+    enabled: false
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 1Gi   }
+
+# ── StatsD ───────────────────────────────────────────────────────────────────
+statsd:
+  resources:
+    requests: { cpu: 50m,  memory: 64Mi  }
+    limits:   { cpu: 200m, memory: 256Mi }
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
 logs:
   persistence:
     enabled: false
 
+# ── Airflow Configuration Overrides ──────────────────────────────────────────
 config:
   core:
     load_examples: "False"
-    parallelism: "500"
+    parallelism: "32"
     max_active_runs_per_dag: "4"
   scheduler:
-    parsing_processes: "4"
+    parsing_processes: "2"
     max_tis_per_query: "256"
   logging:
     remote_logging: "True"
     remote_log_conn_id: "aws_default"
+  webserver:
+    expose_config: "True"
+    instance_name: "Enterprise Airflow"
 
+# ── Environment Variables ────────────────────────────────────────────────────
 env:
   - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
     value: s3://airflow-enterprise-demo-airflow-20260726152206799300000005/logs
   - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
     value: airflow
 
-# Keep control-plane services on resilient on-demand nodes. Task pods are
-# configured separately by a pod template to use the worker node group.
+# ── Node Placement ───────────────────────────────────────────────────────────
 nodeSelector:
   workload: airflow-system
 
+# ── Worker Pod Resources (KubernetesExecutor task pods) ──────────────────────
 workers:
   resources:
-    limits:
-      cpu: "1"
-      memory: "2Gi"
-    requests:
-      cpu: "500m"
-      memory: "1Gi"
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 2Gi   }

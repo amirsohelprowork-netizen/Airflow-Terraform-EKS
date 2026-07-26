@@ -1,6 +1,6 @@
 """
 Example DAG: Hello World Pipeline
-Demonstrates a simple Airflow DAG for testing MWAA deployment.
+Demonstrates a simple Airflow DAG for testing EKS deployment.
 
 This DAG:
 1. Prints a greeting
@@ -10,8 +10,8 @@ This DAG:
 
 from datetime import datetime, timedelta
 
-from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.sdk import DAG
+from airflow.providers.standard.operators.python import PythonOperator
 
 
 # ---------- Default arguments ----------
@@ -29,7 +29,7 @@ default_args = {
 def print_hello(**context):
     """First task: Print a greeting with execution context."""
     execution_date = context["ds"]
-    print(f"👋 Hello from MWAA! Execution date: {execution_date}")
+    print(f"👋 Hello from Airflow on EKS! Execution date: {execution_date}")
     print(f"DAG run ID: {context['run_id']}")
     return "Hello from Airflow!"
 
@@ -69,15 +69,15 @@ def completion_report(**context):
 with DAG(
     dag_id="example_hello_world",
     default_args=default_args,
-    description="A simple Hello World DAG to test MWAA deployment",
-    schedule_interval="@daily",
+    description="A simple Hello World DAG to test EKS deployment",
+    schedule="@daily",
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["example", "testing", "hello-world"],
     doc_md="""
     ## Example Hello World DAG
 
-    This DAG is used to verify that MWAA is properly configured and
+    This DAG is used to verify that Airflow on EKS is properly configured and
     the CI/CD pipeline is deploying DAGs correctly.
 
     ### Tasks

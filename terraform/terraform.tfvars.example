@@ -1,21 +1,9 @@
-# ================================================
-# Example terraform.tfvars
-# Copy this file to terraform.tfvars and fill in your values
-# ================================================
-# NEVER commit terraform.tfvars to git — it may contain secrets
+# Do not commit terraform.tfvars. Replace the Kubernetes version with one supported in us-east-1.
+kubernetes_version = "1.30"
+admin_cidr_blocks  = ["YOUR.PUBLIC.IP/32"]
+github_repository  = "YOUR_GITHUB_ORGANIZATION/YOUR_REPOSITORY"
 
-# General
-project_name = "airflow-prod"
-environment  = "dev"
-aws_region   = "us-east-1"
-
-# EC2
-instance_type = "t3.medium"    # 2 vCPU, 4GB RAM — good for Airflow
-
-# Airflow
-airflow_image_tag      = "2.9.2"
-airflow_admin_username = "admin"
-airflow_admin_password = "AirflowAdmin123!"
-
-# Access (restrict in production!)
-allowed_cidr_blocks = ["0.0.0.0/0"]
+# Demo defaults are intentionally constrained. Raise these only after performance testing.
+max_worker_nodes       = 10
+enable_multi_az        = false
+backup_retention_days  = 1

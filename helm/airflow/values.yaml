@@ -1,0 +1,66 @@
+# Enterprise-demo values for the official Apache Airflow Helm chart.
+# CI replaces the image repository/tag and applies a generated metadata secret.
+executor: KubernetesExecutor
+
+images:
+  airflow:
+    repository: REPLACE_AT_DEPLOYMENT
+    tag: REPLACE_AT_DEPLOYMENT
+    pullPolicy: IfNotPresent
+
+postgresql:
+  enabled: false
+
+data:
+  # Created by scripts/bootstrap-airflow-secrets.ps1. Secret key: connection.
+  metadataSecretName: airflow-metadata
+
+dags:
+  persistence:
+    enabled: false
+  gitSync:
+    enabled: false
+
+webserver:
+  replicas: 2
+  service:
+    type: ClusterIP
+  defaultUser:
+    enabled: false
+
+scheduler:
+  replicas: 2
+
+logs:
+  persistence:
+    enabled: false
+
+config:
+  core:
+    load_examples: "False"
+    parallelism: "500"
+    max_active_runs_per_dag: "4"
+  scheduler:
+    parsing_processes: "4"
+    max_tis_per_query: "256"
+  logging:
+    remote_logging: "True"
+    remote_log_conn_id: "aws_default"
+
+env:
+  - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
+    value: REPLACE_AIRFLOW_LOG_S3_URI
+  - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+
+# Keep control-plane services on resilient on-demand nodes. Task pods are
+# configured separately by a pod template to use the worker node group.
+nodeSelector:
+  workload: airflow-system
+
+workers:
+  resources:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits: { cpu: "2", memory: "4Gi" }

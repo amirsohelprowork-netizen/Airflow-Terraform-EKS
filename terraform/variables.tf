@@ -1,73 +1,57 @@
-####################################################
-# Input Variables
-####################################################
-
-# ---------- General ----------
 variable "project_name" {
-  description = "Name prefix for all resources"
-  type        = string
-  default     = "airflow-prod"
+  type    = string
+  default = "airflow-enterprise"
 }
-
 variable "environment" {
-  description = "Environment name (dev, staging, prod)"
-  type        = string
-  default     = "dev"
+  type    = string
+  default = "demo"
 }
-
 variable "aws_region" {
-  description = "AWS region to deploy resources"
-  type        = string
-  default     = "us-east-1"
+  type    = string
+  default = "us-east-1"
 }
-
-# ---------- VPC ----------
 variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
+  type    = string
+  default = "10.40.0.0/16"
+}
+variable "kubernetes_version" {
   type        = string
-  default     = "10.0.0.0/16"
+  description = "A Kubernetes version currently supported by EKS in the target region."
 }
-
-variable "public_subnet_cidr" {
-  description = "CIDR block for public subnet"
-  type        = string
-  default     = "10.0.1.0/24"
-}
-
-# ---------- EC2 ----------
-variable "instance_type" {
-  description = "EC2 instance type (t3.medium recommended for Airflow)"
-  type        = string
-  default     = "t3.medium"
-}
-
-variable "airflow_ui_port" {
-  description = "Port for Airflow web UI"
-  type        = number
-  default     = 8080
-}
-
-variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to access Airflow UI and SSH"
+variable "admin_cidr_blocks" {
   type        = list(string)
-  default     = ["0.0.0.0/0"]  # Restrict this in production!
+  description = "Trusted public CIDRs permitted to reach the EKS API endpoint."
 }
-
-variable "airflow_admin_username" {
-  description = "Airflow admin username"
-  type        = string
-  default     = "admin"
+variable "system_node_instance_type" {
+  type    = string
+  default = "t3.large"
 }
-
-variable "airflow_admin_password" {
-  description = "Airflow admin password"
-  type        = string
-  default     = "AirflowAdmin123!"
-  sensitive   = true
+variable "worker_node_instance_type" {
+  type    = string
+  default = "m6i.large"
 }
-
-variable "airflow_image_tag" {
-  description = "Apache Airflow Docker image tag"
+variable "max_worker_nodes" {
+  type    = number
+  default = 10
+}
+variable "db_instance_class" {
+  type    = string
+  default = "db.t4g.medium"
+}
+variable "postgres_version" {
+  type    = string
+  default = "16.6"
+}
+variable "enable_multi_az" {
+  type        = bool
+  default     = false
+  description = "Enable for production; false keeps the time-boxed demo cost lower."
+}
+variable "backup_retention_days" {
+  type    = number
+  default = 1
+}
+variable "github_repository" {
   type        = string
-  default     = "2.9.2"
+  description = "GitHub repository in owner/name format allowed to deploy."
 }

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: airflow-task
+spec:
+  serviceAccountName: airflow-task
+  restartPolicy: Never
+  nodeSelector:
+    workload: airflow-task
+  tolerations:
+    - key: workload
+      operator: Equal
+      value: airflow-task
+      effect: NoSchedule
+  containers:
+    - name: base
+      image: REPLACE_AT_DEPLOYMENT
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "2"
+          memory: "4Gi"

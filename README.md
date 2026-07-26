@@ -1,164 +1,57 @@
-# 🚀 Airflow on AWS — Enterprise IaC Deployment
+# Enterprise Airflow reference demo on Amazon EKS
 
-Production-grade Apache Airflow deployment on AWS using **MWAA** (Managed Workflows for Apache Airflow), **Terraform** for infrastructure, and **GitHub Actions** for CI/CD.
+This repository is an **unapplied, production-shaped demonstration** of Apache
+Airflow on Amazon EKS. It is designed for a customer that expects thousands of
+daily workflow runs and wants to see the right operational building blocks:
+Kubernetes task isolation, resilient schedulers, managed PostgreSQL, immutable
+releases, least-privilege deployment identity, central logs, and explicit
+teardown.
 
 ## Architecture
 
-```
-Developer → Git Push → GitHub Actions → S3 Bucket → AWS MWAA (Airflow)
-```
-
-- **Infrastructure**: Terraform provisions VPC, S3, IAM, and MWAA
-- **DAG Deployment**: Push DAGs to Git → CI validates → syncs to S3 → MWAA picks them up
-- **Airflow UI**: Publicly accessible web UI (configurable to private)
-
-## Prerequisites
-
-| Tool | Version | Install Command |
-|------|---------|-----------------|
-| Terraform | ≥ 1.5 | `winget install HashiCorp.Terraform` |
-| AWS CLI | v2 | `winget install Amazon.AWSCLI` |
-| Git | any | Already installed |
-| Python | ≥ 3.11 | For local DAG validation |
-
-## Quick Start
-
-### 1. Configure AWS CLI
-
-```bash
-aws configure
-# Enter your AWS Access Key ID, Secret Access Key, and region (us-east-1)
+```text
+GitHub Actions (OIDC) → ECR immutable Airflow image → EKS + Helm
+                                                  ├─ scheduler replicas
+                                                  ├─ webserver replicas
+                                                  └─ KubernetesExecutor task Pods
+                                                            ↓
+                                             RDS PostgreSQL + S3 remote logs
 ```
 
-### 2. Deploy Infrastructure
+The current EC2/LocalExecutor environment was destroyed before this redesign.
+This code has **not** been applied; it cannot incur new AWS charges until you
+run Terraform apply.
 
-```bash
-# Navigate to terraform directory
-cd terraform
+## Why KubernetesExecutor
 
-# Copy and edit variables
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your preferred values
+Each task runs in an isolated Kubernetes Pod with defined CPU/memory limits.
+EKS can add worker nodes for queued Pods, while the Airflow control plane stays
+on a dedicated node group. This is stronger than a single EC2 + LocalExecutor
+deployment, but customer capacity must still be proven by a load test.
 
-# Initialize Terraform
-terraform init
+## Demo deployment
 
-# Preview changes
-terraform plan
+1. Install Terraform, AWS CLI, kubectl, and Helm. Authenticate using a
+   non-root IAM role/user.
+2. Copy `terraform/terraform.tfvars.example` to `terraform/terraform.tfvars`.
+   Set a supported EKS version, your public IP CIDR, and the GitHub repository.
+3. Create an AWS Budget before provisioning.
+4. Run `terraform init`, `terraform plan`, then `terraform apply` in
+   `terraform/` after reviewing the plan.
+5. Run `scripts/bootstrap-airflow-secrets.ps1` with the Terraform outputs.
+6. Set the GitHub repository variables listed in
+   [the runbook](docs/enterprise-demo-runbook.md).
+7. Push to `main` to build a SHA-tagged image and deploy the Airflow Helm chart.
+8. Trigger `controlled_kubernetes_scale_test` with `{ "task_count": 100 }`.
 
-# Deploy (takes ~25-30 minutes for MWAA)
-terraform apply
+## Cost boundary
+
+This is a short-lived demo. The Terraform defaults intentionally use one NAT
+Gateway, single-AZ RDS, and constrained worker-node scaling. They are not the
+production HA settings. Destroy the stack immediately after the demo:
+
+```powershell
+.\scripts\destroy-enterprise-demo.ps1 -Confirm DESTROY-EKS-DEMO
 ```
 
-### 3. Upload Initial DAGs
-
-```bash
-# Get the S3 bucket name from Terraform output
-export BUCKET=$(terraform output -raw s3_bucket_name)
-
-# Sync DAGs to S3
-aws s3 sync ../dags/ s3://$BUCKET/dags/
-```
-
-### 4. Access Airflow UI
-
-```bash
-# Get the Airflow URL
-terraform output mwaa_webserver_url
-
-# Open in browser — authenticate via AWS SSO/IAM
-```
-
-### 5. Set Up CI/CD (GitHub)
-
-1. Push this repo to GitHub
-2. Go to **Settings → Secrets and variables → Actions**
-3. Add these secrets:
-   - `AWS_ACCESS_KEY_ID`
-   - `AWS_SECRET_ACCESS_KEY`
-   - `AWS_REGION` (e.g., `us-east-1`)
-   - `MWAA_S3_BUCKET` (from `terraform output s3_bucket_name`)
-4. (Optional) Create a `production` environment with required reviewers for Terraform changes
-
-### 6. Deploy DAGs via CI/CD
-
-```bash
-# Edit or add a DAG
-vi dags/my_new_dag.py
-
-# Push to GitHub
-git add dags/
-git commit -m "feat: add new data pipeline DAG"
-git push origin main
-
-# GitHub Actions will:
-# 1. Validate the DAG syntax
-# 2. Sync to S3
-# 3. MWAA picks it up in ~30 seconds
-```
-
-## Project Structure
-
-```
-├── terraform/                    # Infrastructure as Code
-│   ├── main.tf                   # Provider config
-│   ├── variables.tf              # Input variables
-│   ├── outputs.tf                # Output values
-│   ├── vpc.tf                    # VPC, subnets, NAT, IGW
-│   ├── s3.tf                     # S3 bucket for DAGs
-│   ├── iam.tf                    # IAM roles and policies
-│   ├── mwaa.tf                   # MWAA environment
-│   ├── security_groups.tf        # Security groups
-│   └── terraform.tfvars.example  # Example variables
-│
-├── dags/                         # Airflow DAGs
-│   └── example_dag.py            # Sample DAG
-│
-├── requirements/
-│   └── requirements.txt          # Python packages for Airflow
-│
-├── .github/workflows/
-│   ├── deploy-dags.yml           # CI/CD for DAG deployment
-│   └── terraform.yml             # CI/CD for infrastructure
-│
-├── scripts/
-│   └── validate_dags.py          # DAG validation script
-│
-├── .gitignore
-└── README.md
-```
-
-## Cost Estimate
-
-| Resource | Cost/Day | Notes |
-|----------|----------|-------|
-| MWAA (mw1.small) | ~$11.76 | Minimum instance |
-| NAT Gateway | ~$1.08 | Single AZ |
-| S3 + Logs | ~$0.10 | Negligible |
-| **Total** | **~$13/day** | — |
-
-> ⚠️ **Always run `terraform destroy` when done testing!**
-
-## Cleanup
-
-```bash
-cd terraform
-terraform destroy
-# Type 'yes' to confirm — this removes ALL resources
-```
-
-## CI/CD Workflows
-
-### DAG Deployment (`deploy-dags.yml`)
-- **Trigger**: Push to `main` affecting `dags/` or `requirements/`
-- **Steps**: Validate Python → Sync to S3
-- **PR**: Validates only (no deployment)
-
-### Infrastructure (`terraform.yml`)
-- **Trigger**: Push to `main` affecting `terraform/`
-- **Steps**: Init → Format check → Validate → Plan → Apply
-- **PR**: Shows plan in PR comments (no apply)
-
-## License
-
-MIT
+See [the full runbook](docs/enterprise-demo-runbook.md) before applying.

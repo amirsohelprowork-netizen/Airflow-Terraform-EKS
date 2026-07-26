@@ -1,49 +1,10 @@
-####################################################
-# Outputs
-####################################################
-
-output "airflow_url" {
-  description = "URL for the Airflow web UI"
-  value       = "http://${aws_eip.airflow.public_ip}:${var.airflow_ui_port}"
+output "cluster_name" { value = module.eks.cluster_name }
+output "cluster_endpoint" { value = module.eks.cluster_endpoint }
+output "airflow_db_endpoint" { value = aws_db_instance.airflow.address }
+output "airflow_db_master_secret_arn" {
+  value     = aws_db_instance.airflow.master_user_secret[0].secret_arn
+  sensitive = true
 }
-
-output "airflow_public_ip" {
-  description = "Public IP of the Airflow EC2 instance"
-  value       = aws_eip.airflow.public_ip
-}
-
-output "airflow_admin_username" {
-  description = "Airflow admin username"
-  value       = var.airflow_admin_username
-}
-
-output "airflow_admin_password" {
-  description = "Airflow admin password"
-  value       = var.airflow_admin_password
-  sensitive   = true
-}
-
-output "ssh_command" {
-  description = "SSH command to connect to the Airflow instance"
-  value       = "ssh -i terraform/airflow-key.pem ec2-user@${aws_eip.airflow.public_ip}"
-}
-
-output "ssh_private_key_path" {
-  description = "Path to the SSH private key"
-  value       = local_file.private_key.filename
-}
-
-output "ec2_instance_id" {
-  description = "EC2 instance ID"
-  value       = aws_instance.airflow.id
-}
-
-output "vpc_id" {
-  description = "ID of the VPC"
-  value       = aws_vpc.main.id
-}
-
-output "destroy_warning" {
-  description = "Reminder to destroy resources when done testing"
-  value       = "⚠️  Remember to run 'terraform destroy' when done testing to avoid charges!"
-}
+output "airflow_bucket_name" { value = aws_s3_bucket.airflow.bucket }
+output "airflow_ecr_repository_url" { value = aws_ecr_repository.airflow.repository_url }
+output "github_deploy_role_arn" { value = aws_iam_role.github_deploy.arn }

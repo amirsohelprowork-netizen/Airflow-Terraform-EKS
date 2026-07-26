@@ -1,0 +1,67 @@
+name: Deploy Airflow to EKS
+
+on:
+  push:
+    branches: [main]
+    paths: ["dags/**", "requirements/**", "docker/**", "helm/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  EKS_CLUSTER: ${{ vars.EKS_CLUSTER_NAME }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  AIRFLOW_NAMESPACE: airflow
+
+jobs:
+  validate-build-deploy:
+    runs-on: ubuntu-latest
+    environment: demo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate DAG syntax
+        run: python scripts/validate_dags.py
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push immutable Airflow image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f docker/Dockerfile -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker push "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - name: Configure kubectl and Helm
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+          helm repo add apache-airflow https://airflow.apache.org
+          helm repo update
+
+      - name: Deploy chart
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          kubectl create namespace "$AIRFLOW_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          helm upgrade --install airflow apache-airflow/airflow \
+            --namespace "$AIRFLOW_NAMESPACE" \
+            --values helm/airflow/values.yaml \
+            --set images.airflow.repository="$REGISTRY/$ECR_REPOSITORY" \
+            --set images.airflow.tag="$IMAGE_TAG" \
+            --set-string env[0].value="s3://${{ vars.AIRFLOW_LOG_BUCKET }}/logs"
+
+      - name: Verify control-plane pods
+        run: kubectl get pods --namespace "$AIRFLOW_NAMESPACE"

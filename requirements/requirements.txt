@@ -10,3 +10,4 @@
 # boto3==1.34.0
 # requests==2.31.0
 # sqlalchemy==1.4.50
+apache-airflow-providers-amazon==9.0.0

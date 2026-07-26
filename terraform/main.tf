@@ -79,6 +79,9 @@ module "eks" {
       max_size       = 4
       desired_size   = 2
       labels         = { workload = "airflow-system" }
+      iam_role_additional_policies = {
+        s3 = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+      }
     }
     workers = {
       name           = "workers"
@@ -89,6 +92,9 @@ module "eks" {
       labels         = { workload = "airflow-task" }
       taints = {
         airflow = { key = "workload", value = "airflow-task", effect = "NO_SCHEDULE" }
+      }
+      iam_role_additional_policies = {
+        s3 = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
       }
     }
   }

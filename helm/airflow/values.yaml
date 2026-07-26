@@ -27,7 +27,19 @@ dags:
 webserver:
   replicas: 2
   service:
-    type: LoadBalancer
+    type: ClusterIP
+
+ingress:
+  web:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    hosts:
+      - name: "a90d01a85191f4c7882fe9b66c0ab5c7-232742411.us-east-1.elb.amazonaws.com"
 
 scheduler:
   replicas: 2

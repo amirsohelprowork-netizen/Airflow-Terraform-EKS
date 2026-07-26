@@ -1,0 +1,51 @@
+# ================================================
+# .gitignore for Airflow IaC Project
+# ================================================
+
+# ---------- Terraform ----------
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+*.tfplan
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# ---------- IDE ----------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# ---------- Secrets ----------
+*.pem
+*.key
+.env
+.env.local

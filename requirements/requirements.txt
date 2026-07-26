@@ -1,0 +1,12 @@
+# ================================================
+# Python requirements for MWAA Airflow environment
+# Add any additional packages your DAGs need here
+# ================================================
+# Note: apache-airflow is already installed by MWAA
+# Only add extra packages your DAGs require
+
+# Common data engineering packages (uncomment as needed)
+# pandas==2.1.4
+# boto3==1.34.0
+# requests==2.31.0
+# sqlalchemy==1.4.50

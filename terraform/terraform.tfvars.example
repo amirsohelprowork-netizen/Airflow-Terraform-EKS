@@ -1,0 +1,20 @@
+# ================================================
+# Example terraform.tfvars
+# Copy this file to terraform.tfvars and fill in your values
+# ================================================
+# NEVER commit terraform.tfvars to git — it may contain secrets
+
+# General
+project_name = "airflow-prod"
+environment  = "dev"
+aws_region   = "us-east-1"
+
+# MWAA
+airflow_version       = "2.9.2"
+environment_class     = "mw1.small"    # Cheapest option
+max_workers           = 2
+min_workers           = 1
+webserver_access_mode = "PUBLIC_ONLY"  # Set to PRIVATE_ONLY for production
+
+# Logging
+logging_level = "INFO"

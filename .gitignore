@@ -49,3 +49,4 @@ ehthumbs.db
 *.key
 .env
 .env.local
+airflow-key.pem

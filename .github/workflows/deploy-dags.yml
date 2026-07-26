@@ -1,9 +1,9 @@
 ####################################################
-# GitHub Actions: Deploy DAGs to MWAA
+# GitHub Actions: Deploy DAGs to Airflow EC2
 # Triggers on push to main when dags/ or requirements/ change
 ####################################################
 
-name: Deploy DAGs to MWAA
+name: Deploy DAGs to Airflow
 
 on:
   push:
@@ -16,10 +16,6 @@ on:
     paths:
       - 'dags/**'
       - 'requirements/**'
-
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
-  MWAA_S3_BUCKET: ${{ secrets.MWAA_S3_BUCKET }}
 
 permissions:
   contents: read
@@ -39,7 +35,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install Airflow for validation
         run: |
           pip install apache-airflow==2.9.2 --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.2/constraints-3.11.txt"
           if [ -f requirements/requirements.txt ]; then
@@ -49,9 +45,9 @@ jobs:
       - name: Validate DAG syntax
         run: python scripts/validate_dags.py
 
-  # -------- Step 2: Deploy to S3 (only on main) --------
+  # -------- Step 2: Deploy via SSH (only on main) --------
   deploy:
-    name: Deploy to S3
+    name: Deploy to EC2
     runs-on: ubuntu-latest
     needs: validate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -60,29 +56,42 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Deploy DAGs via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          host: ${{ secrets.AIRFLOW_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            echo "🚀 Deploying DAGs..."
+            # Clean old DAGs
+            sudo rm -rf /opt/airflow/dags/*
 
-      - name: Sync DAGs to S3
-        run: |
-          echo "🚀 Syncing DAGs to s3://${MWAA_S3_BUCKET}/dags/"
-          aws s3 sync dags/ s3://${MWAA_S3_BUCKET}/dags/ \
-            --delete \
-            --exclude "__pycache__/*" \
-            --exclude "*.pyc" \
-            --exclude ".DS_Store"
-          echo "✅ DAGs synced successfully!"
+      - name: Copy DAGs to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AIRFLOW_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: "dags/*"
+          target: "/opt/airflow/"
+          strip_components: 0
 
-      - name: Sync requirements to S3
-        run: |
-          echo "📦 Uploading requirements.txt"
-          aws s3 cp requirements/requirements.txt \
-            s3://${MWAA_S3_BUCKET}/requirements/requirements.txt
-          echo "✅ Requirements uploaded!"
+      - name: Fix permissions & verify
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AIRFLOW_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            sudo chown -R 50000:0 /opt/airflow/dags/
+            echo "✅ DAGs deployed! Files:"
+            ls -la /opt/airflow/dags/
+            echo ""
+            echo "Airflow scheduler will pick up changes within ~30 seconds."
 
       - name: Summary
         run: |
@@ -90,9 +99,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| DAGs | ✅ Synced to S3 |" >> $GITHUB_STEP_SUMMARY
-          echo "| Requirements | ✅ Uploaded |" >> $GITHUB_STEP_SUMMARY
-          echo "| S3 Bucket | \`${MWAA_S3_BUCKET}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Region | \`${AWS_REGION}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| DAGs | ✅ Deployed via SSH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Host | \`${{ secrets.AIRFLOW_HOST }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "MWAA will pick up changes within ~30 seconds." >> $GITHUB_STEP_SUMMARY
+          echo "Airflow will pick up changes within ~30 seconds." >> $GITHUB_STEP_SUMMARY

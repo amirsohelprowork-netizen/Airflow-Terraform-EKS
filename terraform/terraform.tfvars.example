@@ -9,12 +9,13 @@ project_name = "airflow-prod"
 environment  = "dev"
 aws_region   = "us-east-1"
 
-# MWAA
-airflow_version       = "2.9.2"
-environment_class     = "mw1.small"    # Cheapest option
-max_workers           = 2
-min_workers           = 1
-webserver_access_mode = "PUBLIC_ONLY"  # Set to PRIVATE_ONLY for production
+# EC2
+instance_type = "t3.medium"    # 2 vCPU, 4GB RAM — good for Airflow
 
-# Logging
-logging_level = "INFO"
+# Airflow
+airflow_image_tag      = "2.9.2"
+airflow_admin_username = "admin"
+airflow_admin_password = "AirflowAdmin123!"
+
+# Access (restrict in production!)
+allowed_cidr_blocks = ["0.0.0.0/0"]

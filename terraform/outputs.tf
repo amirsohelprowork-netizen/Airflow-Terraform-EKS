@@ -2,34 +2,40 @@
 # Outputs
 ####################################################
 
-output "mwaa_environment_arn" {
-  description = "ARN of the MWAA environment"
-  value       = aws_mwaa_environment.this.arn
-}
-
-output "mwaa_webserver_url" {
+output "airflow_url" {
   description = "URL for the Airflow web UI"
-  value       = "https://${aws_mwaa_environment.this.webserver_url}"
+  value       = "http://${aws_eip.airflow.public_ip}:${var.airflow_ui_port}"
 }
 
-output "mwaa_status" {
-  description = "Status of the MWAA environment"
-  value       = aws_mwaa_environment.this.status
+output "airflow_public_ip" {
+  description = "Public IP of the Airflow EC2 instance"
+  value       = aws_eip.airflow.public_ip
 }
 
-output "s3_bucket_name" {
-  description = "Name of the S3 bucket storing DAGs"
-  value       = aws_s3_bucket.mwaa.id
+output "airflow_admin_username" {
+  description = "Airflow admin username"
+  value       = var.airflow_admin_username
 }
 
-output "s3_bucket_arn" {
-  description = "ARN of the S3 bucket"
-  value       = aws_s3_bucket.mwaa.arn
+output "airflow_admin_password" {
+  description = "Airflow admin password"
+  value       = var.airflow_admin_password
+  sensitive   = true
 }
 
-output "mwaa_execution_role_arn" {
-  description = "ARN of the MWAA execution role"
-  value       = aws_iam_role.mwaa_execution.arn
+output "ssh_command" {
+  description = "SSH command to connect to the Airflow instance"
+  value       = "ssh -i terraform/airflow-key.pem ec2-user@${aws_eip.airflow.public_ip}"
+}
+
+output "ssh_private_key_path" {
+  description = "Path to the SSH private key"
+  value       = local_file.private_key.filename
+}
+
+output "ec2_instance_id" {
+  description = "EC2 instance ID"
+  value       = aws_instance.airflow.id
 }
 
 output "vpc_id" {
@@ -37,12 +43,6 @@ output "vpc_id" {
   value       = aws_vpc.main.id
 }
 
-output "private_subnet_ids" {
-  description = "IDs of the private subnets"
-  value       = aws_subnet.private[*].id
-}
-
-# ---------- Helpful commands ----------
 output "destroy_warning" {
   description = "Reminder to destroy resources when done testing"
   value       = "⚠️  Remember to run 'terraform destroy' when done testing to avoid charges!"

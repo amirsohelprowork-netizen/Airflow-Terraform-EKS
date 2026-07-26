@@ -28,74 +28,46 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-variable "public_subnet_cidrs" {
-  description = "CIDR blocks for public subnets (min 2 for MWAA)"
-  type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
+variable "public_subnet_cidr" {
+  description = "CIDR block for public subnet"
+  type        = string
+  default     = "10.0.1.0/24"
 }
 
-variable "private_subnet_cidrs" {
-  description = "CIDR blocks for private subnets (min 2 for MWAA)"
-  type        = list(string)
-  default     = ["10.0.10.0/24", "10.0.20.0/24"]
+# ---------- EC2 ----------
+variable "instance_type" {
+  description = "EC2 instance type (t3.medium recommended for Airflow)"
+  type        = string
+  default     = "t3.medium"
 }
 
-# ---------- MWAA ----------
-variable "airflow_version" {
-  description = "Apache Airflow version for MWAA"
+variable "airflow_ui_port" {
+  description = "Port for Airflow web UI"
+  type        = number
+  default     = 8080
+}
+
+variable "allowed_cidr_blocks" {
+  description = "CIDR blocks allowed to access Airflow UI and SSH"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]  # Restrict this in production!
+}
+
+variable "airflow_admin_username" {
+  description = "Airflow admin username"
+  type        = string
+  default     = "admin"
+}
+
+variable "airflow_admin_password" {
+  description = "Airflow admin password"
+  type        = string
+  default     = "AirflowAdmin123!"
+  sensitive   = true
+}
+
+variable "airflow_image_tag" {
+  description = "Apache Airflow Docker image tag"
   type        = string
   default     = "2.9.2"
-}
-
-variable "environment_class" {
-  description = "MWAA environment class (mw1.small, mw1.medium, mw1.large)"
-  type        = string
-  default     = "mw1.small"
-}
-
-variable "max_workers" {
-  description = "Maximum number of Airflow workers"
-  type        = number
-  default     = 2
-}
-
-variable "min_workers" {
-  description = "Minimum number of Airflow workers"
-  type        = number
-  default     = 1
-}
-
-variable "webserver_access_mode" {
-  description = "Webserver access mode: PUBLIC_ONLY or PRIVATE_ONLY"
-  type        = string
-  default     = "PUBLIC_ONLY"
-
-  validation {
-    condition     = contains(["PUBLIC_ONLY", "PRIVATE_ONLY"], var.webserver_access_mode)
-    error_message = "webserver_access_mode must be PUBLIC_ONLY or PRIVATE_ONLY."
-  }
-}
-
-variable "dag_s3_path" {
-  description = "S3 path prefix for DAGs inside the bucket"
-  type        = string
-  default     = "dags/"
-}
-
-variable "requirements_s3_path" {
-  description = "S3 path for the requirements.txt file"
-  type        = string
-  default     = "requirements/requirements.txt"
-}
-
-# ---------- Logging ----------
-variable "logging_level" {
-  description = "Airflow logging level"
-  type        = string
-  default     = "INFO"
-
-  validation {
-    condition     = contains(["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"], var.logging_level)
-    error_message = "logging_level must be one of: CRITICAL, ERROR, WARNING, INFO, DEBUG."
-  }
 }

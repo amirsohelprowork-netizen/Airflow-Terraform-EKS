@@ -1,6 +1,6 @@
 ####################################################
-# Terraform Configuration for AWS MWAA (Airflow)
-# Enterprise-grade IaC deployment
+# Terraform Configuration for Airflow on EC2
+# Enterprise-grade IaC with Docker Compose
 ####################################################
 
 terraform {
@@ -10,6 +10,10 @@ terraform {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
     }
   }
 

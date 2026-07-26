@@ -1,36 +1,41 @@
 ####################################################
-# Security Groups for MWAA
+# Security Groups
 ####################################################
 
-# MWAA requires a self-referencing security group
-# that allows all traffic within the group
-resource "aws_security_group" "mwaa" {
-  name_prefix = "${var.project_name}-${var.environment}-mwaa-"
-  description = "Security group for MWAA environment"
+resource "aws_security_group" "airflow" {
+  name_prefix = "${var.project_name}-${var.environment}-"
+  description = "Security group for Airflow EC2 instance"
   vpc_id      = aws_vpc.main.id
 
-  # Ingress: Allow all traffic from within the same security group
-  # Required for MWAA workers, scheduler, and webserver to communicate
+  # SSH access
   ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    self      = true
-    description = "Allow all intra-MWAA traffic"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidr_blocks
+    description = "SSH access"
   }
 
-  # Egress: Allow all outbound traffic
-  # Required for MWAA to access AWS services (S3, CloudWatch, SQS, etc.)
+  # Airflow Web UI
+  ingress {
+    from_port   = var.airflow_ui_port
+    to_port     = var.airflow_ui_port
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidr_blocks
+    description = "Airflow Web UI"
+  }
+
+  # All outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
+    description = "All outbound traffic"
   }
 
   tags = {
-    Name = "${var.project_name}-${var.environment}-mwaa-sg"
+    Name = "${var.project_name}-${var.environment}-airflow-sg"
   }
 
   lifecycle {

@@ -158,7 +158,10 @@ resource "aws_db_instance" "airflow" {
   apply_immediately           = true
 }
 
-resource "aws_s3_bucket" "airflow" { bucket_prefix = "${local.name}-airflow-" }
+resource "aws_s3_bucket" "airflow" { 
+  bucket_prefix = "${local.name}-airflow-" 
+  force_destroy = true
+}
 resource "aws_s3_bucket_versioning" "airflow" {
   bucket = aws_s3_bucket.airflow.id
   versioning_configuration { status = "Enabled" }

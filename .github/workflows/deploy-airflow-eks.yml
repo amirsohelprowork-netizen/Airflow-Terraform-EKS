@@ -59,6 +59,7 @@ jobs:
           helm upgrade --install airflow apache-airflow/airflow \
             --namespace "$AIRFLOW_NAMESPACE" \
             --values helm/airflow/values.yaml \
+            --timeout 15m \
             --set images.airflow.repository="$REGISTRY/$ECR_REPOSITORY" \
             --set images.airflow.tag="$IMAGE_TAG" \
             --set-string env[0].value="s3://${{ vars.AIRFLOW_LOG_BUCKET }}/logs"

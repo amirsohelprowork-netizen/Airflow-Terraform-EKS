@@ -58,6 +58,11 @@ GitHub Actions (OIDC) → ECR immutable Airflow image → EKS + Helm
 14. **AWS IAM**: Enforces "Least Privilege" security:
     - **OIDC (OpenID Connect)**: Allows GitHub Actions to deploy without static passwords.
     - **IRSA (IAM Roles for Service Accounts)**: Allows Kubernetes Pods to write to S3 without static passwords.
+
+
+
+
+    
 ## Why KubernetesExecutor
 
 Each task runs in an isolated Kubernetes Pod with defined CPU/memory limits.

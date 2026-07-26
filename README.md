@@ -39,19 +39,25 @@ This template is separated into two distinct GitHub Actions CI/CD pipelines to m
 
 ### Phase 1: Platform & Infrastructure (`deploy-infra.yml`)
 1. Fork this repository to your own GitHub account.
-2. In your AWS Account, create an OIDC Identity Provider for GitHub Actions (or use access keys).
-3. Run `scripts/bootstrap-remote-state.ps1` locally to create an S3 bucket for your Terraform state.
-4. Push any changes to the `terraform/` folder.
-5. GitHub Actions will automatically run `terraform apply` to build your EKS cluster, RDS database, and VPC.
+2. Create an AWS IAM User with Administrator permissions (or appropriate least-privilege).
+3. In your GitHub repository, go to **Settings → Secrets and variables → Actions**.
+4. Add the following **Secrets**:
+   - `AWS_ACCESS_KEY_ID`: Your IAM user access key.
+   - `AWS_SECRET_ACCESS_KEY`: Your IAM user secret key.
+5. Add the following **Variable**:
+   - `AWS_REGION`: e.g., `us-east-1`
+6. Run `scripts/bootstrap-remote-state.ps1` locally to create an S3 bucket for your Terraform state.
+7. Push any changes to the `terraform/` folder to automatically trigger the build.
 
 ### Phase 2: Application & DAGs (`deploy-airflow-eks.yml`)
-1. Once the infrastructure is ready, edit the DAGs in the `dags/` folder.
-2. Update Python packages in `requirements/requirements.txt` if needed.
-3. Push to the `main` branch.
-4. GitHub Actions will automatically:
-   - Build a new Docker image containing your DAGs and dependencies.
-   - Push the immutable image to Amazon ECR.
-   - Run a `helm upgrade` to seamlessly deploy the new Airflow image onto your EKS cluster.
+1. Once Phase 1 completes successfully, view the GitHub Actions logs for the "Terraform Apply" step to get your newly created AWS resources.
+2. In your GitHub repository, go to **Settings → Secrets and variables → Actions** and add the following **Variables**:
+   - `AWS_DEPLOY_ROLE_ARN`: The OIDC IAM Role ARN created by Terraform.
+   - `EKS_CLUSTER_NAME`: The name of the EKS cluster.
+   - `ECR_REPOSITORY`: The ECR repository path.
+   - `AIRFLOW_LOG_BUCKET`: The S3 bucket name for Airflow remote logging.
+3. Edit your DAGs in the `dags/` folder.
+4. Push to the `main` branch to automatically build and deploy your Airflow application.
 
 ## Teardown
 

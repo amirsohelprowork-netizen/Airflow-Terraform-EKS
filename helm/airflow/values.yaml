@@ -8,7 +8,7 @@ webserverSecretKey: "AirflowEnterpriseStaticWebserverSecretKey2026!"
 images:
   airflow:
     repository: apache/airflow
-    tag: 2.9.2
+    tag: 2.10.5
     pullPolicy: IfNotPresent
 
 postgresql:

@@ -24,7 +24,7 @@ variable "admin_cidr_blocks" {
 }
 variable "system_node_instance_type" {
   type    = string
-  default = "t3.medium"
+  default = "t3.large"
 }
 variable "worker_node_instance_type" {
   type    = string
@@ -36,11 +36,11 @@ variable "max_worker_nodes" {
 }
 variable "db_instance_class" {
   type    = string
-  default = "db.t3.micro"
+  default = "db.t4g.medium"
 }
 variable "postgres_version" {
   type    = string
-  default = "16.6"
+  default = "16"
 }
 variable "enable_multi_az" {
   type        = bool

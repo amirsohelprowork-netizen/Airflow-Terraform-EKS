@@ -56,7 +56,7 @@ jobs:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          kubectl create namespace "$AIRFLOW_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
           helm upgrade --install airflow apache-airflow/airflow \
             --namespace "$AIRFLOW_NAMESPACE" \
             --values helm/airflow/values.yaml \

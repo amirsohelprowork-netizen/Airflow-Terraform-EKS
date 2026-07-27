@@ -3,6 +3,7 @@ terraform {
 
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 5.0" }
+    kubernetes = { source = "hashicorp/kubernetes", version = "~> 2.30" }
   }
 }
 
@@ -17,6 +18,16 @@ provider "aws" {
       Architecture = "eks-kubernetesexecutor"
     }
   }
+}
+
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_name
+}
+
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
 data "aws_availability_zones" "available" { state = "available" }
@@ -101,11 +112,18 @@ module "eks" {
       policy_associations = {
         airflow_namespace = {
           policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
-          access_scope = { type = "cluster" }
+          access_scope = { type = "namespace", namespaces = ["airflow"] }
         }
       }
     }
   }
+}
+
+resource "kubernetes_namespace" "airflow" {
+  metadata {
+    name = "airflow"
+  }
+  depends_on = [module.eks]
 }
 
 resource "aws_security_group" "postgres" {

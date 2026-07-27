@@ -4,6 +4,15 @@ Welcome to the definitive guide for deploying a production-ready Apache Airflow 
 
 ---
 
+## 📋 Prerequisites
+
+Before you begin, ensure your local machine has the following installed:
+1. [**Git**](https://git-scm.com/downloads)
+2. [**AWS CLI**](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (You must run `aws configure` and log in with your AWS Administrator credentials).
+3. **PowerShell** (Pre-installed on Windows. Mac/Linux users can install [PowerShell Core](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell)).
+
+---
+
 ## 🛠️ Step 1: Fork & Setup
 
 Before we start building, we need to prepare your GitHub and AWS environments.

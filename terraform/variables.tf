@@ -24,11 +24,11 @@ variable "admin_cidr_blocks" {
 }
 variable "system_node_instance_type" {
   type    = string
-  default = "t3.large"
+  default = "t3.micro"
 }
 variable "worker_node_instance_type" {
   type    = string
-  default = "m6i.large"
+  default = "t3.micro"
 }
 variable "max_worker_nodes" {
   type    = number
@@ -36,7 +36,7 @@ variable "max_worker_nodes" {
 }
 variable "db_instance_class" {
   type    = string
-  default = "db.t4g.medium"
+  default = "db.t3.micro"
 }
 variable "postgres_version" {
   type    = string

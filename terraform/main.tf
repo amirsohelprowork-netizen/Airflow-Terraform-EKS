@@ -172,6 +172,21 @@ resource "aws_db_instance" "airflow" {
   apply_immediately           = true
 }
 
+data "aws_secretsmanager_secret_version" "db_password" {
+  secret_id = aws_db_instance.airflow.master_user_secret[0].secret_arn
+}
+
+resource "kubernetes_secret" "airflow_metadata" {
+  metadata {
+    name      = "airflow-metadata"
+    namespace = kubernetes_namespace.airflow.metadata[0].name
+  }
+  data = {
+    connection = "postgresql://${aws_db_instance.airflow.username}:${jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["password"]}@${aws_db_instance.airflow.endpoint}/${aws_db_instance.airflow.db_name}"
+  }
+  type = "Opaque"
+}
+
 resource "aws_s3_bucket" "airflow" { 
   bucket_prefix = "${local.name}-airflow-" 
   force_destroy = true

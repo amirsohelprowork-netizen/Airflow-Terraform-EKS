@@ -101,7 +101,7 @@ module "eks" {
       policy_associations = {
         airflow_namespace = {
           policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
-          access_scope = { type = "namespace", namespaces = ["airflow"] }
+          access_scope = { type = "cluster" }
         }
       }
     }

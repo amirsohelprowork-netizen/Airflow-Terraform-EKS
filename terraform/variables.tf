@@ -36,7 +36,7 @@ variable "max_worker_nodes" {
 }
 variable "db_instance_class" {
   type    = string
-  default = "db.t4g.medium"
+  default = "db.t3.micro"
 }
 variable "postgres_version" {
   type    = string

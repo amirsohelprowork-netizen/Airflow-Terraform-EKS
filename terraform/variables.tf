@@ -20,6 +20,7 @@ variable "kubernetes_version" {
 }
 variable "admin_cidr_blocks" {
   type        = list(string)
+  default     = ["0.0.0.0/0"]
   description = "Trusted public CIDRs permitted to reach the EKS API endpoint."
 }
 variable "system_node_instance_type" {

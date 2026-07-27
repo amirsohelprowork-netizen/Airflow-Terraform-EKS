@@ -111,8 +111,8 @@ module "eks" {
       principal_arn = aws_iam_role.github_deploy.arn
       policy_associations = {
         airflow_namespace = {
-          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
-          access_scope = { type = "namespace", namespaces = ["airflow"] }
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
         }
       }
     }

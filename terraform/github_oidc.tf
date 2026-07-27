@@ -3,7 +3,9 @@ data "aws_caller_identity" "current" {}
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
-  # Pin and review this thumbprint as part of routine security maintenance.
+  # Note: As of mid-2023, AWS manages the certificates for GitHub OIDC automatically.
+  # These thumbprints are kept purely to satisfy the Terraform API requirements,
+  # but AWS will ignore them and use its own trusted Root CAs. You do not need to rotate these.
   thumbprint_list = [
     "6938fd4d98bab03faadb97b34396831e3780aea1",
     "1c58a3a8518e8759bf075b76b750d4f2df264fcd"

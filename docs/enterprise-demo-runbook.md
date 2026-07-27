@@ -33,6 +33,7 @@ Set these in **Settings → Secrets and variables → Actions → Variables**:
 | `ECR_REPOSITORY` | ECR repository path from `terraform output -raw airflow_ecr_repository_url` (use only the part after the `/`) |
 | `AIRFLOW_LOG_BUCKET` | `terraform output -raw airflow_bucket_name` |
 | `AWS_DEPLOY_ROLE_ARN` | `terraform output -raw github_deploy_role_arn` |
+| `AIRFLOW_IRSA_ROLE_ARN` | `terraform output -raw airflow_irsa_role_arn` |
 
 ## Required GitHub repository secrets (Phase 1 only)
 

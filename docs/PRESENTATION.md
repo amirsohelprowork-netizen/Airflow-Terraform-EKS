@@ -81,6 +81,7 @@ Once Phase 1 successfully completes, your AWS infrastructure is ready. Now we de
 2. Go back to **Settings** → **Secrets and variables** → **Actions**.
 3. Create the following **Repository Variables** using the Terraform outputs:
    - `AWS_DEPLOY_ROLE_ARN`: (The `github_deploy_role_arn` output from Terraform)
+   - `AIRFLOW_IRSA_ROLE_ARN`: (The `airflow_irsa_role_arn` output from Terraform)
    - `EKS_CLUSTER_NAME`: (The `cluster_name` output, usually `airflow-enterprise-demo`)
    - `ECR_REPOSITORY`: (The `airflow_ecr_repository_url` output — use only the part after the `/`, e.g. `airflow-enterprise-demo/airflow`)
    - `AIRFLOW_LOG_BUCKET`: (The `airflow_bucket_name` output)

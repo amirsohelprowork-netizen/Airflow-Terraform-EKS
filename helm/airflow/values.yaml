@@ -114,6 +114,9 @@ env:
   - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
     value: airflow
 
+# Note: IAM Roles for Service Accounts (IRSA) annotations are injected dynamically
+# during deployment via `helm upgrade --set` in the GitHub Actions pipeline.
+
 # ── Node Placement ───────────────────────────────────────────────────────────
 nodeSelector:
   workload: airflow-system

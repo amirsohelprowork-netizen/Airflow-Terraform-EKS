@@ -14,6 +14,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   EKS_CLUSTER: ${{ vars.EKS_CLUSTER_NAME }}
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  AIRFLOW_IRSA_ROLE_ARN: ${{ vars.AIRFLOW_IRSA_ROLE_ARN }}
   AIRFLOW_NAMESPACE: airflow
 
 jobs:
@@ -62,7 +63,10 @@ jobs:
             --timeout 15m \
             --set images.airflow.repository="$REGISTRY/$ECR_REPOSITORY" \
             --set images.airflow.tag="$IMAGE_TAG" \
-            --set-string env[0].value="s3://${{ vars.AIRFLOW_LOG_BUCKET }}/logs"
+            --set-string env[0].value="s3://${{ vars.AIRFLOW_LOG_BUCKET }}/logs" \
+            --set-string workers.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
+            --set-string scheduler.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
+            --set-string webserver.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN"
 
       - name: Verify control-plane pods
         run: kubectl get pods --namespace "$AIRFLOW_NAMESPACE"

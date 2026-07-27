@@ -57,6 +57,8 @@ module "eks" {
   cluster_name    = local.name
   cluster_version = var.kubernetes_version
 
+  enable_irsa = true
+
   cluster_endpoint_public_access           = true
   cluster_endpoint_public_access_cidrs     = var.admin_cidr_blocks
   enable_cluster_creator_admin_permissions = true
@@ -79,9 +81,6 @@ module "eks" {
       max_size       = 4
       desired_size   = 2
       labels         = { workload = "airflow-system" }
-      iam_role_additional_policies = {
-        s3 = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-      }
     }
     workers = {
       name           = "workers"
@@ -92,9 +91,6 @@ module "eks" {
       labels         = { workload = "airflow-task" }
       taints = {
         airflow = { key = "workload", value = "airflow-task", effect = "NO_SCHEDULE" }
-      }
-      iam_role_additional_policies = {
-        s3 = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
       }
     }
   }
@@ -178,4 +174,50 @@ resource "aws_ecr_repository" "airflow" {
   name                 = "${local.name}/airflow"
   image_tag_mutability = "IMMUTABLE"
   image_scanning_configuration { scan_on_push = true }
+}
+
+# ---------------------------------------------------------
+# IRSA: Least Privilege IAM Role for Airflow ServiceAccounts
+# ---------------------------------------------------------
+data "aws_iam_policy_document" "airflow_s3" {
+  statement {
+    actions = [
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
+    resources = [
+      aws_s3_bucket.airflow.arn,
+      "${aws_s3_bucket.airflow.arn}/*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "airflow_s3" {
+  name_prefix = "${local.name}-airflow-s3-"
+  description = "Allows Airflow Pods to write logs to S3"
+  policy      = data.aws_iam_policy_document.airflow_s3.json
+}
+
+module "airflow_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "5.44.0"
+
+  role_name = "${local.name}-airflow-irsa"
+
+  role_policy_arns = {
+    s3 = aws_iam_policy.airflow_s3.arn
+  }
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = [
+        "airflow:airflow-worker", 
+        "airflow:airflow-scheduler",
+        "airflow:airflow-webserver"
+      ]
+    }
+  }
 }

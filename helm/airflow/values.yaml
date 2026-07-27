@@ -110,7 +110,7 @@ config:
 # ── Environment Variables ────────────────────────────────────────────────────
 env:
   - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
-    value: s3://airflow-enterprise-demo-airflow-20260726152206799300000005/logs
+    value: "s3://REPLACED-AT-DEPLOY-TIME/logs"   # overridden by --set-string in CI/CD pipeline
   - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
     value: airflow
 

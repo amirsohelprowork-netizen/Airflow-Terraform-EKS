@@ -12,6 +12,9 @@ permissions:
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_VAR_kubernetes_version: ${{ vars.TF_VAR_KUBERNETES_VERSION || '1.30' }}
+  TF_VAR_admin_cidr_blocks: '["0.0.0.0/0"]'
+  TF_VAR_github_repository: ${{ github.repository }}
 
 jobs:
   terraform-deploy:

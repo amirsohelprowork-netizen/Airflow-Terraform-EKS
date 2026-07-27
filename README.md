@@ -58,11 +58,6 @@ GitHub Actions (OIDC) → ECR immutable Airflow image → EKS + Helm
 14. **AWS IAM**: Enforces "Least Privilege" security:
     - **OIDC (OpenID Connect)**: Allows GitHub Actions to deploy without static passwords.
     - **IRSA (IAM Roles for Service Accounts)**: Allows Kubernetes Pods to write to S3 without static passwords.
-
-
-
-
-    
 ## Why KubernetesExecutor
 
 Each task runs in an isolated Kubernetes Pod with defined CPU/memory limits.
@@ -74,32 +69,16 @@ deployment, but customer capacity must still be proven by a load test.
 
 This template is separated into two distinct GitHub Actions CI/CD pipelines to mimic enterprise best practices:
 
-### Phase 1: Platform & Infrastructure (`deploy-infra.yml`)
-1. Fork this repository to your own GitHub account.
-2. Create an AWS IAM User with Administrator permissions (or appropriate least-privilege).
-3. In your GitHub repository, go to **Settings → Secrets and variables → Actions**.
-4. Add the following **Secrets**:
-   - `AWS_ACCESS_KEY_ID`: Your IAM user access key.
-   - `AWS_SECRET_ACCESS_KEY`: Your IAM user secret key.
-5. Add the following **Variable**:
-   - `AWS_REGION`: e.g., `us-east-1`
-6. Run `scripts/bootstrap-remote-state.ps1` locally to create an S3 bucket for your Terraform state.
-7. Push any changes to the `terraform/` folder to automatically trigger the build.
+| Phase | Pipeline | Trigger | What it does |
+|-------|----------|---------|-------------|
+| **1 — Platform** | `deploy-infra.yml` | Changes to `terraform/` | Runs `terraform apply` to provision VPC, EKS, RDS, ECR, IAM OIDC |
+| **2 — Application** | `deploy-airflow-eks.yml` | Changes to `dags/`, `docker/`, `helm/`, `requirements/` | Builds an immutable Docker image, pushes to ECR, deploys via Helm |
 
-### Phase 2: Application & DAGs (`deploy-airflow-eks.yml`)
-1. Once Phase 1 completes successfully, view the GitHub Actions logs for the "Terraform Apply" step to get your newly created AWS resources.
-2. In your GitHub repository, go to **Settings → Secrets and variables → Actions** and add the following **Variables**:
-   - `AWS_DEPLOY_ROLE_ARN`: The OIDC IAM Role ARN created by Terraform.
-   - `EKS_CLUSTER_NAME`: The name of the EKS cluster.
-   - `ECR_REPOSITORY`: The ECR repository path.
-   - `AIRFLOW_LOG_BUCKET`: The S3 bucket name for Airflow remote logging.
-3. Edit your DAGs in the `dags/` folder.
-4. Push to the `main` branch to automatically build and deploy your Airflow application.
+👉 For the complete step-by-step walkthrough (including prerequisites, GitHub Secrets setup, and teardown), see the [**Quickstart Presentation Guide**](docs/PRESENTATION.md).
 
 ## Teardown
 
-To avoid incurring massive AWS charges, destroy the environment immediately after you are finished evaluating it:
-```bash
-cd terraform
-terraform destroy -auto-approve
-```
+> [!WARNING]
+> **Amazon EKS costs ~$3-4/day.** Always destroy the infrastructure when you are finished!
+
+See the detailed [teardown instructions in the Quickstart Guide](docs/PRESENTATION.md#-step-6-teardown-important) for the full 3-step process (Helm uninstall → Terraform destroy → Backend cleanup).

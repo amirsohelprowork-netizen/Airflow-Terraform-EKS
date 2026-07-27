@@ -17,8 +17,13 @@ It is designed as an open-source template for deploying:
 ## 📚 Step-by-Step Quickstart Guide
 **New here?** Check out the highly visual [**Quickstart Presentation Guide**](docs/PRESENTATION.md) for step-by-step instructions on how to fork, build, and deploy this pipeline from scratch!
 
-## ⚠️ AWS Free Tier Warning
-**Amazon EKS is NOT included in the AWS Free Tier.** The control plane alone costs ~$0.10/hour (~$73/month). The NAT Gateway and worker nodes will add additional costs. **This project will cost ~$3 to $4 per day to run.** Always destroy the resources when you are finished testing!
+## 💰 AWS Cost & Free Trial Info
+> [!WARNING]
+> **Amazon EKS is NOT included in the standard AWS Free Tier.** The EKS control plane costs ~$0.10/hour (~$73/month), and the NAT Gateway and EC2 worker nodes add additional costs. In total, **this project costs approximately $3 to $4 per day to run.**
+
+**However**, this project was successfully built and tested on a brand-new **AWS Free Trial account** with the **$120 free credits** that AWS gives to new sign-ups. If you are a student or a new AWS user, you can deploy this entire architecture, experiment with it for several weeks, and still have credits left over — as long as you **destroy the infrastructure when you are not using it**.
+
+👉 Always run the [teardown steps](docs/PRESENTATION.md#-step-6-teardown-important) when you are finished to stop all charges immediately.
 
 ## Architecture
 

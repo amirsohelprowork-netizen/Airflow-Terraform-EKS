@@ -93,7 +93,7 @@ module "eks" {
 
   eks_managed_node_groups = {
     system = {
-      name           = "system"
+      name           = "system-v2"
       instance_types = [var.system_node_instance_type]
       min_size       = 3
       max_size       = 5

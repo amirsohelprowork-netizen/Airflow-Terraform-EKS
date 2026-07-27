@@ -36,8 +36,8 @@ webserver:
   service:
     type: ClusterIP
   resources:
-    requests: { cpu: 250m, memory: 512Mi }
-    limits:   { cpu: "1",  memory: 2Gi   }
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m,  memory: 384Mi   }
   defaultUser:
     enabled: true
     role: Admin
@@ -68,8 +68,8 @@ ingress:
 scheduler:
   replicas: 1
   resources:
-    requests: { cpu: 250m, memory: 512Mi }
-    limits:   { cpu: "1",  memory: 2Gi   }
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m,  memory: 384Mi   }
 
 # ── Triggerer ────────────────────────────────────────────────────────────────
 triggerer:
@@ -77,14 +77,20 @@ triggerer:
   persistence:
     enabled: false
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
-    limits:   { cpu: 500m, memory: 1Gi   }
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 192Mi   }
 
 # ── StatsD ───────────────────────────────────────────────────────────────────
 statsd:
   resources:
-    requests: { cpu: 50m,  memory: 64Mi  }
-    limits:   { cpu: 200m, memory: 256Mi }
+    requests: { cpu: 20m,  memory: 32Mi  }
+    limits:   { cpu: 100m, memory: 64Mi }
+
+# ── DAG Processor ────────────────────────────────────────────────────────────
+dagProcessor:
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 192Mi }
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
 logs:

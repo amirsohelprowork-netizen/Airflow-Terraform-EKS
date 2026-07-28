@@ -196,7 +196,9 @@ resource "kubernetes_secret" "airflow_metadata" {
     namespace = kubernetes_namespace.airflow.metadata[0].name
   }
   data = {
-    connection = "postgresql://${aws_db_instance.airflow.username}:${jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["password"]}@${aws_db_instance.airflow.endpoint}/${aws_db_instance.airflow.db_name}"
+    # URL-encode the Secrets Manager password so special characters cannot break
+    # Airflow's connection URL parser (Invalid IPv6 URL / CrashLoop on wait-for-migrations).
+    connection = "postgresql://${aws_db_instance.airflow.username}:${urlencode(jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["password"])}@${aws_db_instance.airflow.address}:${aws_db_instance.airflow.port}/${aws_db_instance.airflow.db_name}"
   }
   type = "Opaque"
 }

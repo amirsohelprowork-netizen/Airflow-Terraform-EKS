@@ -93,11 +93,11 @@ module "eks" {
 
   eks_managed_node_groups = {
     system = {
-      name           = "system-v2"
+      name           = "system-v3"
       instance_types = [var.system_node_instance_type]
-      min_size       = 3
-      max_size       = 5
-      desired_size   = 3
+      min_size       = 5
+      max_size       = 8
+      desired_size   = 5
       labels         = { workload = "airflow-system" }
     }
     workers = {

@@ -99,7 +99,7 @@ jobs:
             --version 1.22.0 \
             --namespace "$AIRFLOW_NAMESPACE" \
             --values helm/airflow/values.yaml \
-            --timeout 30m \
+            --timeout 25m \
             --set images.airflow.repository="$ECR_REPOSITORY" \
             --set images.airflow.tag="$IMAGE_TAG" \
             --set-string createUserJob.defaultUser.password="$AIRFLOW_ADMIN_PASSWORD" \

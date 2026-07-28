@@ -29,11 +29,7 @@ data "aws_iam_policy_document" "github_assume_role" {
       variable = "token.actions.githubusercontent.com:sub"
       values   = [
         "repo:${var.github_repository}:*",
-        "repo:${var.github_repository}@*:*",
-        "repo:${lower(var.github_repository)}:*",
-        "repo:${lower(var.github_repository)}@*:*",
-        "repo:${split("/", var.github_repository)[0]}/*:*",
-        "repo:${split("/", var.github_repository)[0]}@*/*:*"
+        "repo:${lower(var.github_repository)}:*"
       ]
     }
   }
@@ -56,6 +52,14 @@ data "aws_iam_policy_document" "github_deploy" {
   statement {
     actions   = ["eks:DescribeCluster"]
     resources = [module.eks.cluster_arn]
+  }
+  statement {
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+    resources = ["arn:aws:s3:::${var.terraform_state_bucket}", "arn:aws:s3:::${var.terraform_state_bucket}/*"]
+  }
+  statement {
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:DescribeTable"]
+    resources = ["arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.terraform_lock_table}"]
   }
 }
 

@@ -10,12 +10,14 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: airflow-demo-deploy
+  cancel-in-progress: false
+
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
-  EKS_CLUSTER: ${{ vars.EKS_CLUSTER_NAME }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-  AIRFLOW_IRSA_ROLE_ARN: ${{ vars.AIRFLOW_IRSA_ROLE_ARN }}
   AIRFLOW_NAMESPACE: airflow
+  TF_STATE_KEY: ${{ vars.TF_STATE_KEY || 'airflow-demo/terraform.tfstate' }}
 
 jobs:
   validate-build-deploy:
@@ -30,62 +32,88 @@ jobs:
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/airflow-enterprise-demo-github-deploy
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: Load deployment configuration from remote state
+        working-directory: ./terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE }}" \
+            -backend-config="key=${{ env.TF_STATE_KEY }}" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+          echo "EKS_CLUSTER=$(terraform output -raw cluster_name)" >> "$GITHUB_ENV"
+          echo "ECR_REPOSITORY=$(terraform output -raw airflow_ecr_repository_url)" >> "$GITHUB_ENV"
+          echo "AIRFLOW_LOG_BUCKET=$(terraform output -raw airflow_bucket_name)" >> "$GITHUB_ENV"
+          echo "AIRFLOW_IRSA_ROLE_ARN=$(terraform output -raw airflow_irsa_role_arn)" >> "$GITHUB_ENV"
+          echo "CLUSTER_AUTOSCALER_IRSA_ROLE_ARN=$(terraform output -raw cluster_autoscaler_irsa_role_arn)" >> "$GITHUB_ENV"
+
       - name: Log in to ECR
-        id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push immutable Airflow image
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -f docker/Dockerfile -t "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
-          docker push "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker build -f docker/Dockerfile -t "$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker push "$ECR_REPOSITORY:$IMAGE_TAG"
 
       - name: Configure kubectl and Helm
         run: |
           aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
           helm repo add apache-airflow https://airflow.apache.org
-          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo add autoscaler https://kubernetes.github.io/autoscaler
           helm repo update
 
-      - name: Deploy NGINX Ingress Controller
+      - name: Deploy Cluster Autoscaler
         run: |
-          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-            --namespace ingress-nginx --create-namespace \
-            --set controller.service.type=LoadBalancer \
-            --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb" \
+          helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
+            --namespace kube-system \
+            --set autoDiscovery.clusterName="$EKS_CLUSTER" \
+            --set awsRegion="$AWS_REGION" \
+            --set rbac.serviceAccount.create=true \
+            --set-string rbac.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$CLUSTER_AUTOSCALER_IRSA_ROLE_ARN" \
             --wait
 
-      - name: Deploy chart
+      - name: Require Airflow bootstrap secrets
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          AIRFLOW_ADMIN_PASSWORD: ${{ secrets.AIRFLOW_ADMIN_PASSWORD }}
+          AIRFLOW_API_SECRET_KEY: ${{ secrets.AIRFLOW_API_SECRET_KEY }}
         run: |
+          test -n "$AIRFLOW_ADMIN_PASSWORD"
+          test -n "$AIRFLOW_API_SECRET_KEY"
 
+      - name: Deploy Airflow chart
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          AIRFLOW_ADMIN_PASSWORD: ${{ secrets.AIRFLOW_ADMIN_PASSWORD }}
+          AIRFLOW_API_SECRET_KEY: ${{ secrets.AIRFLOW_API_SECRET_KEY }}
+        run: |
           helm upgrade --install airflow apache-airflow/airflow \
+            --version 1.22.0 \
             --namespace "$AIRFLOW_NAMESPACE" \
             --values helm/airflow/values.yaml \
             --timeout 15m \
-            --set images.airflow.repository="$REGISTRY/$ECR_REPOSITORY" \
+            --set images.airflow.repository="$ECR_REPOSITORY" \
             --set images.airflow.tag="$IMAGE_TAG" \
-            --set-string env[0].value="s3://${{ vars.AIRFLOW_LOG_BUCKET }}/logs" \
+            --set-string createUserJob.defaultUser.password="$AIRFLOW_ADMIN_PASSWORD" \
+            --set-string apiSecretKey="$AIRFLOW_API_SECRET_KEY" \
+            --set-string env[0].value="s3://$AIRFLOW_LOG_BUCKET/logs" \
             --set-string workers.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
             --set-string scheduler.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
-            --set-string webserver.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN"
+            --set-string apiServer.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN"
 
       - name: Verify control-plane pods
         run: kubectl get pods --namespace "$AIRFLOW_NAMESPACE"
-        
-      - name: 🚀 Get Airflow URL
+
+      - name: Airflow access instructions
         run: |
-          echo "Waiting for Load Balancer to provision..."
-          sleep 10
-          URL=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
-          echo "=========================================================="
-          echo "🎉 AIRFLOW IS LIVE!"
-          echo "🌐 URL: http://$URL"
-          echo "=========================================================="
+          echo "The safe demo default has no public load balancer."
+          echo "Run: kubectl -n $AIRFLOW_NAMESPACE port-forward svc/airflow-api-server 8080:8080"
+          echo "Enable public ingress only after configuring TLS and authentication."

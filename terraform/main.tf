@@ -93,22 +93,26 @@ module "eks" {
 
   eks_managed_node_groups = {
     system = {
-      name           = "system-v3"
+      name           = "system"
       instance_types = [var.system_node_instance_type]
-      min_size       = 8
-      max_size       = 12
-      desired_size   = 8
+      min_size       = var.system_node_min_size
+      max_size       = var.system_node_max_size
+      desired_size   = var.system_node_min_size
       labels         = { workload = "airflow-system" }
     }
     workers = {
       name           = "workers"
       instance_types = [var.worker_node_instance_type]
-      min_size       = 0
+      min_size       = var.worker_node_min_size
       max_size       = var.max_worker_nodes
-      desired_size   = 0
+      desired_size   = var.worker_node_min_size
       labels         = { workload = "airflow-task" }
       taints = {
         airflow = { key = "workload", value = "airflow-task", effect = "NO_SCHEDULE" }
+      }
+      tags = {
+        "k8s.io/cluster-autoscaler/enabled"     = "true"
+        "k8s.io/cluster-autoscaler/${local.name}" = "owned"
       }
     }
   }
@@ -257,8 +261,51 @@ module "airflow_irsa" {
       namespace_service_accounts = [
         "airflow:airflow-worker", 
         "airflow:airflow-scheduler",
-        "airflow:airflow-webserver"
+        "airflow:airflow-api-server"
       ]
+    }
+  }
+}
+
+# Cluster Autoscaler is required for KubernetesExecutor task pods to make the
+# dedicated worker node group grow from zero. Its write permissions are limited
+# to Auto Scaling groups explicitly tagged for this cluster.
+data "aws_iam_policy_document" "cluster_autoscaler" {
+  statement {
+    actions   = ["autoscaling:DescribeAutoScalingGroups", "autoscaling:DescribeAutoScalingInstances", "autoscaling:DescribeLaunchConfigurations", "autoscaling:DescribeScalingActivities", "ec2:DescribeImages", "ec2:DescribeInstanceTypes", "ec2:DescribeLaunchTemplateVersions", "ec2:DescribeTags", "ec2:DescribeInstances", "eks:DescribeNodegroup"]
+    resources = ["*"]
+  }
+  statement {
+    actions   = ["autoscaling:SetDesiredCapacity", "autoscaling:TerminateInstanceInAutoScalingGroup"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/k8s.io/cluster-autoscaler/enabled"
+      values   = ["true"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/k8s.io/cluster-autoscaler/${local.name}"
+      values   = ["owned"]
+    }
+  }
+}
+
+resource "aws_iam_policy" "cluster_autoscaler" {
+  name_prefix = "${local.name}-cluster-autoscaler-"
+  policy      = data.aws_iam_policy_document.cluster_autoscaler.json
+}
+
+module "cluster_autoscaler_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "5.44.0"
+
+  role_name = "${local.name}-cluster-autoscaler"
+  role_policy_arns = { autoscaler = aws_iam_policy.cluster_autoscaler.arn }
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:cluster-autoscaler"]
     }
   }
 }

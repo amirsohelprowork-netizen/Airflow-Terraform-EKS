@@ -1,0 +1,14 @@
+# Production-shaped profile: use only after a capacity, resilience, and cost review.
+kubernetes_version       = "REPLACE_WITH_SUPPORTED_EKS_VERSION"
+admin_cidr_blocks        = ["CORPORATE_VPN_CIDR"]
+github_repository        = "YOUR_ORG/YOUR_REPO"
+terraform_state_bucket   = "YOUR_UNIQUE_TERRAFORM_STATE_BUCKET"
+terraform_lock_table     = "YOUR_TERRAFORM_LOCK_TABLE"
+
+system_node_instance_type = "m6i.large"
+system_node_min_size      = 3
+system_node_max_size      = 6
+worker_node_instance_type = "m6i.large"
+max_worker_nodes          = 20
+enable_multi_az           = true
+backup_retention_days     = 14

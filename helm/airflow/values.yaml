@@ -4,10 +4,13 @@
 # =============================================================================
 
 executor: KubernetesExecutor
+airflowVersion: "3.2.2"
 
 # ── Static Webserver Secret Key ──────────────────────────────────────────────
 # Prevents the dynamic-key warning and unnecessary webserver restarts.
-webserverSecretKey: "AirflowEnterpriseStaticWebserverSecretKey2026!"
+# Supply this through a Kubernetes Secret or --set-string in the deployment.
+# Never commit a real key to this public template.
+apiSecretKey: "CHANGE-ME-BEFORE-PRODUCTION"
 
 # ── Airflow Image ────────────────────────────────────────────────────────────
 images:
@@ -31,18 +34,20 @@ dags:
     enabled: false
 
 # ── Webserver ────────────────────────────────────────────────────────────────
-webserver:
+apiServer:
   replicas: 1                            # single replica is fine for demo
   service:
     type: ClusterIP
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits:   { memory: 512Mi   }
+
+createUserJob:
   defaultUser:
     enabled: true
     role: Admin
     username: admin
-    password: admin
+    password: CHANGE-ME
     email: admin@example.com
     firstName: Admin
     lastName: User
@@ -50,14 +55,14 @@ webserver:
 # ── Ingress via NGINX Ingress Controller (HTTPS) ────────────────────────────
 ingress:
   web:
-    enabled: true
+    enabled: false
     ingressClassName: nginx
     annotations:
       nginx.ingress.kubernetes.io/ssl-redirect: "false"
       nginx.ingress.kubernetes.io/proxy-body-size: "100m"
     host: ""                             # accept any hostname
   apiServer:
-    enabled: true
+    enabled: false
     ingressClassName: nginx
     annotations:
       nginx.ingress.kubernetes.io/ssl-redirect: "false"
@@ -109,8 +114,8 @@ config:
   logging:
     remote_logging: "True"
     remote_log_conn_id: "aws_default"
-  webserver:
-    expose_config: "True"
+  api:
+    expose_config: "False"
     instance_name: "Enterprise Airflow"
 
 # ── Environment Variables ────────────────────────────────────────────────────
@@ -129,6 +134,14 @@ nodeSelector:
 
 # ── Worker Pod Resources (KubernetesExecutor task pods) ──────────────────────
 workers:
+  # KubernetesExecutor task pods must land on the autoscaled task node group.
+  nodeSelector:
+    workload: airflow-task
+  tolerations:
+    - key: workload
+      operator: Equal
+      value: airflow-task
+      effect: NoSchedule
   resources:
     requests: { cpu: 250m, memory: 512Mi }
     limits:   { cpu: "1",  memory: 2Gi   }

@@ -9,3 +9,4 @@ output "airflow_bucket_name" { value = aws_s3_bucket.airflow.bucket }
 output "airflow_ecr_repository_url" { value = aws_ecr_repository.airflow.repository_url }
 output "github_deploy_role_arn" { value = aws_iam_role.github_deploy.arn }
 output "airflow_irsa_role_arn" { value = module.airflow_irsa.iam_role_arn }
+output "cluster_autoscaler_irsa_role_arn" { value = module.cluster_autoscaler_irsa.iam_role_arn }

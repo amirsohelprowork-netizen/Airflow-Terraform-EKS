@@ -1,89 +1,81 @@
-# 🚀 Enterprise Airflow on AWS EKS Blueprint
+# Cost-capped Apache Airflow on Amazon EKS
 
-[![Terraform](https://img.shields.io/badge/Terraform-1.6+-623CE4.svg?logo=terraform)](https://www.terraform.io/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.30-326ce5.svg?logo=kubernetes)](https://kubernetes.io/)
-[![Apache Airflow](https://img.shields.io/badge/Apache%20Airflow-2.9.1-017CEE.svg?logo=apache-airflow)](https://airflow.apache.org/)
-[![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg?logo=github-actions)](https://github.com/features/actions)
+This is a public reference deployment for Apache Airflow with `KubernetesExecutor`, EKS managed node groups, RDS PostgreSQL, ECR, S3 remote logs, GitHub Actions OIDC, IRSA, and Cluster Autoscaler.
 
-This repository is a production-grade, open-source blueprint for deploying **Apache Airflow on Amazon EKS (Elastic Kubernetes Service)** using an **Infrastructure as Code (IaC)** and **CI/CD** approach. It is heavily optimized for enterprise scalability, security, and immutability. 
+It has two intentional operating profiles:
 
-It is designed as an open-source template for deploying:
-- Kubernetes task isolation
-- Managed PostgreSQL (RDS)
-- Immutable Docker releases
-- Least-privilege AWS IAM identity
-- Central logs (S3)
+| Profile | Purpose | Cost / resilience |
+| --- | --- | --- |
+| Demo (default) | A short, 1–2 day learning or architecture test using AWS credits | One small system node, zero task nodes until demand; not HA |
+| Production example | A starting point for a real platform review | Multi-node, Multi-AZ settings; materially more expensive |
 
-## 📚 Step-by-Step Quickstart Guide
-**New here?** Check out the highly visual [**Quickstart Presentation Guide**](docs/PRESENTATION.md) for step-by-step instructions on how to fork, build, and deploy this pipeline from scratch!
+## Important cost and capacity statement
 
-## 💰 AWS Cost & Free Trial Info
-> [!WARNING]
-> **Amazon EKS is NOT included in the standard AWS Free Tier.** The EKS control plane costs ~$0.10/hour (~$73/month), and the NAT Gateway and EC2 worker nodes add additional costs. In total, **this project costs approximately $3 to $4 per day to run.**
+AWS EKS and NAT Gateway are **not Free Tier services**. This template is suitable for a time-boxed test on promotional AWS credits, not a zero-cost deployment. Set an AWS Budget before deployment and destroy the stack immediately after testing.
 
-**However**, this project was successfully built and tested on a brand-new **AWS Free Trial account** with the **$120 free credits** that AWS gives to new sign-ups. If you are a student or a new AWS user, you can deploy this entire architecture, experiment with it for several weeks, and still have credits left over — as long as you **destroy the infrastructure when you are not using it**.
+The demo proves deployment mechanics and task-pod autoscaling. It does **not** prove a workload of thousands of DAGs or tasks. Production capacity must be measured using representative DAG parsing, task duration, database load, and downstream dependencies.
 
-👉 Always run the [teardown steps](docs/PRESENTATION.md#-step-6-teardown-important) when you are finished to stop all charges immediately.
+## What is automated
 
-## Architecture
+After the one-time state bootstrap and GitHub configuration, a push to `main` will:
 
-```text
-GitHub Actions (OIDC) → ECR immutable Airflow image → EKS + Helm
-                                                  ├─ scheduler replicas
-                                                  ├─ webserver replicas
-                                                  └─ KubernetesExecutor task Pods
-                                                            ↓
-                                             RDS PostgreSQL + S3 remote logs
-```
+1. Provision/update AWS infrastructure with Terraform.
+2. Build a commit-SHA-tagged image containing DAGs and dependencies.
+3. Read deployment settings directly from Terraform remote state.
+4. Deploy Cluster Autoscaler and Airflow with Helm.
 
-## 🛠️ Technology Stack & Services Used
+No Terraform outputs need to be copied into GitHub variables for the default demo profile.
 
-### ⚙️ Automation & Orchestration
-1. **GitHub**: Source code hosting and version control.
-2. **GitHub Actions**: Acts as our "robot assembly line" (CI/CD) to automatically build the infrastructure and deploy the Docker images without human intervention.
-3. **Terraform**: Infrastructure as Code (IaC) to build AWS infrastructure predictably and enforce version control over our physical architecture.
+## First deployment
 
-### ☁️ Compute & Application
-4. **Amazon EKS (Elastic Kubernetes Service)**: The core compute engine. EKS perfectly orchestrates Airflow, automatically spinning up new worker nodes when thousands of tasks are queued, and isolating each task into its own Pod (`KubernetesExecutor`).
-5. **Amazon EC2**: The underlying virtual machines that act as the "worker nodes" in the EKS cluster.
-6. **Docker**: Packages our DAGs and Python dependencies into a standardized, **immutable** container.
-7. **Helm**: The package manager for Kubernetes. It installs the complex Airflow ecosystem into EKS with a single command.
+1. Fork this repository. Never run it from a GitHub organization whose other repositories should be able to deploy into this AWS account.
+2. Run the one-time backend bootstrap locally:
 
-### 💾 Storage & Databases
-8. **Amazon RDS (PostgreSQL)**: Airflow's "memory." Tracks the state of every DAG, user logins, and connections. Amazon automatically handles backups, updates, and failures.
-9. **Amazon ECR**: A secure, private registry to store the Airflow Docker images we build in Phase 2.
-10. **Amazon S3**: Used for two critical things: 
-    - Securely storing Terraform's remote "State File."
-    - Storing Airflow's remote task logs, so they aren't lost when Kubernetes Pods are destroyed.
-11. **Amazon DynamoDB**: A lightning-fast NoSQL database used purely for **Terraform State Locking** to prevent pipeline race conditions.
+   ```powershell
+   .\scripts\bootstrap-remote-state.ps1 -AwsRegion us-east-1
+   ```
 
-### 🔒 Networking & Security
-12. **Amazon VPC**: The virtual "fence" around our infrastructure. EKS Nodes and the RDS Database are in **Private Subnets**, making them unreachable from the public internet.
-13. **AWS ELB (Elastic Load Balancer)**: Automatically created by Kubernetes `ingress-nginx` to securely route browser traffic to the internal Airflow Webserver.
-14. **AWS IAM**: Enforces "Least Privilege" security:
-    - **OIDC (OpenID Connect)**: Allows GitHub Actions to deploy without static passwords.
-    - **IRSA (IAM Roles for Service Accounts)**: Allows Kubernetes Pods to write to S3 without static passwords.
-## Why KubernetesExecutor
+3. Add these GitHub repository variables using the values the script prints:
 
-Each task runs in an isolated Kubernetes Pod with defined CPU/memory limits.
-EKS can add worker nodes for queued Pods, while the Airflow control plane stays
-on a dedicated node group. This is stronger than a single EC2 + LocalExecutor
-deployment, but customer capacity must still be proven by a load test.
+   - `AWS_REGION`
+   - `AWS_ACCOUNT_ID`
+   - `TF_STATE_BUCKET`
+   - `TF_LOCK_TABLE`
+   - `TF_STATE_KEY`
+   - `TF_VAR_KUBERNETES_VERSION` — an EKS version currently supported in your chosen region.
+   - `TF_VAR_ADMIN_CIDR_BLOCKS` — use `["0.0.0.0/0"]` with GitHub-hosted runners. The API remains IAM-authenticated, but this is not a production network boundary. A private production endpoint requires a runner inside the VPC.
 
-## Two-Phase Deployment Architecture
+4. Add these repository secrets:
 
-This template is separated into two distinct GitHub Actions CI/CD pipelines to mimic enterprise best practices:
+   - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` — one-time bootstrap credentials for the infrastructure workflow. Use a dedicated administrator identity, not root; later application deployments use OIDC.
+   - `AIRFLOW_ADMIN_PASSWORD`
+   - `AIRFLOW_API_SECRET_KEY` — generate a long random value.
 
-| Phase | Pipeline | Trigger | What it does |
-|-------|----------|---------|-------------|
-| **1 — Platform** | `deploy-infra.yml` | Changes to `terraform/` | Runs `terraform apply` to provision VPC, EKS, RDS, ECR, IAM OIDC |
-| **2 — Application** | `deploy-airflow-eks.yml` | Changes to `dags/`, `docker/`, `helm/`, `requirements/` | Builds an immutable Docker image, pushes to ECR, deploys via Helm |
+5. Run **Deploy Infrastructure** from GitHub Actions. It creates the scoped GitHub OIDC deployment role.
+6. Push a change under `dags/`, `docker/`, `requirements/`, or `helm/`, or run **Deploy Airflow to EKS** manually.
+7. The demo does not create a public load balancer. Access the UI safely:
 
-👉 For the complete step-by-step walkthrough (including prerequisites, GitHub Secrets setup, and teardown), see the [**Quickstart Presentation Guide**](docs/PRESENTATION.md).
+   ```bash
+   kubectl -n airflow port-forward svc/airflow-api-server 8080:8080
+   ```
+
+## Scaling model
+
+Airflow control-plane pods stay on the `system` node group. KubernetesExecutor task pods tolerate the dedicated task-node taint; Cluster Autoscaler raises the task group from zero to `max_worker_nodes` when pods cannot schedule. The demo default caps this at three `t3.medium` nodes to bound spend. Raise limits only after load testing.
+
+## Production starting point
+
+Copy [production.tfvars.example](terraform/production.tfvars.example) to a private, ignored `terraform.tfvars`, then review network egress, TLS/DNS, identity, backups, monitoring, alerting, resource quotas, NetworkPolicies, and disaster recovery before use. It is a starting point—not an approved production design.
 
 ## Teardown
 
-> [!WARNING]
-> **Amazon EKS costs ~$3-4/day.** Always destroy the infrastructure when you are finished!
+Destroy application load-bearing resources first, then infrastructure:
 
-See the detailed [teardown instructions in the Quickstart Guide](docs/PRESENTATION.md#-step-6-teardown-important) for the full 3-step process (Helm uninstall → Terraform destroy → Backend cleanup).
+```bash
+helm uninstall airflow -n airflow
+helm uninstall cluster-autoscaler -n kube-system
+cd terraform
+terraform destroy
+```
+
+Then delete the state bucket and DynamoDB lock table only after Terraform has completed and you no longer need its state history.

@@ -21,19 +21,34 @@ variable "kubernetes_version" {
 variable "admin_cidr_blocks" {
   type        = list(string)
   default     = ["0.0.0.0/0"]
-  description = "Trusted public CIDRs permitted to reach the EKS API endpoint."
+  description = "CIDRs permitted to reach the public EKS API endpoint. GitHub-hosted runners require 0.0.0.0/0; use a private endpoint and self-hosted runner for production."
 }
 variable "system_node_instance_type" {
   type    = string
-  default = "t3.micro"
+  default = "t3.medium"
 }
 variable "worker_node_instance_type" {
   type    = string
-  default = "t3.micro"
+  default = "t3.medium"
+}
+variable "system_node_min_size" {
+  type        = number
+  default     = 1
+  description = "Demo default. Production should use at least three nodes across AZs."
+}
+variable "system_node_max_size" {
+  type        = number
+  default     = 3
+  description = "Maximum system nodes for the cost-capped demo profile."
+}
+variable "worker_node_min_size" {
+  type        = number
+  default     = 0
+  description = "Keep at zero for the demo; Cluster Autoscaler adds task capacity on demand."
 }
 variable "max_worker_nodes" {
   type    = number
-  default = 10
+  default = 3
 }
 variable "db_instance_class" {
   type    = string
@@ -55,4 +70,12 @@ variable "backup_retention_days" {
 variable "github_repository" {
   type        = string
   description = "GitHub repository in owner/name format allowed to deploy."
+}
+variable "terraform_state_bucket" {
+  type        = string
+  description = "Name of the pre-created S3 bucket used as the Terraform remote backend."
+}
+variable "terraform_lock_table" {
+  type        = string
+  description = "Name of the pre-created DynamoDB table used for Terraform state locking."
 }

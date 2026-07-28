@@ -13,7 +13,6 @@ permissions:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   TF_VAR_kubernetes_version: ${{ vars.TF_VAR_KUBERNETES_VERSION }}
-  TF_VAR_admin_cidr_blocks: ${{ vars.TF_VAR_ADMIN_CIDR_BLOCKS }}
   TF_VAR_github_repository: ${{ github.repository }}
   TF_VAR_terraform_state_bucket: ${{ vars.TF_STATE_BUCKET }}
   TF_VAR_terraform_lock_table: ${{ vars.TF_LOCK_TABLE }}
@@ -27,6 +26,19 @@ jobs:
     environment: demo
     steps:
       - uses: actions/checkout@v4
+
+      - name: Normalize admin CIDR list for Terraform
+        env:
+          RAW_CIDRS: ${{ vars.TF_VAR_ADMIN_CIDR_BLOCKS }}
+        run: |
+          # Terraform list(string) via TF_VAR_ must be JSON, e.g. ["0.0.0.0/0"].
+          # Accept bare 0.0.0.0/0 from GitHub variables and wrap it.
+          cidr="${RAW_CIDRS:-["0.0.0.0/0"]}"
+          if [[ "$cidr" != \[* ]]; then
+            cidr="[\"${cidr}\"]"
+          fi
+          echo "TF_VAR_admin_cidr_blocks=${cidr}" >> "$GITHUB_ENV"
+          echo "Using admin_cidr_blocks=${cidr}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

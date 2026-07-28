@@ -51,7 +51,7 @@ No Terraform outputs need to be copied for the default demo, except optionally `
    - `AWS_REGION`, `AWS_ACCOUNT_ID`
    - `TF_STATE_BUCKET`, `TF_LOCK_TABLE`, `TF_STATE_KEY`
    - `TF_VAR_KUBERNETES_VERSION` — an EKS version supported in your region
-   - `TF_VAR_ADMIN_CIDR_BLOCKS` — `["0.0.0.0/0"]` for GitHub-hosted runners (IAM still required; not a production network boundary)
+   - `TF_VAR_ADMIN_CIDR_BLOCKS` — prefer `["0.0.0.0/0"]` (JSON list). A bare `0.0.0.0/0` is also accepted by CI and wrapped automatically.
    - `BUDGET_ALERT_EMAIL` — strongly recommended (creates a $40 monthly budget by default)
    - `BUDGET_LIMIT_USD` — optional, default `40`
    - `GITHUB_DEPLOY_ROLE_ARN` — optional; set from infra workflow output after first apply

@@ -6,7 +6,7 @@ It has two intentional operating profiles:
 
 | Profile | Purpose | Cost / resilience |
 | --- | --- | --- |
-| Demo (default) | A short, 1–2 day learning or architecture test using AWS credits | One small system node, zero task nodes until demand; not HA |
+| Demo (default) | A short, 1–2 day learning or architecture test using AWS credits | Three `t3.micro` system nodes, zero task nodes until demand; not HA |
 | Production example | A starting point for a real platform review | Multi-node, Multi-AZ settings; materially more expensive |
 
 ## Important cost and capacity statement
@@ -61,7 +61,7 @@ No Terraform outputs need to be copied into GitHub variables for the default dem
 
 ## Scaling model
 
-Airflow control-plane pods stay on the `system` node group. KubernetesExecutor task pods tolerate the dedicated task-node taint; Cluster Autoscaler raises the task group from zero to `max_worker_nodes` when pods cannot schedule. The demo default caps this at three `t3.medium` nodes to bound spend. Raise limits only after load testing.
+Airflow control-plane pods stay on the `system` node group. KubernetesExecutor task pods tolerate the dedicated task-node taint; Cluster Autoscaler raises the task group from zero to `max_worker_nodes` when pods cannot schedule. The demo uses Free Tier-eligible `t3.micro` nodes and caps task capacity at three nodes. Raise limits only after load testing.
 
 ## Production starting point
 

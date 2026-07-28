@@ -143,5 +143,7 @@ workers:
       value: airflow-task
       effect: NoSchedule
   resources:
-    requests: { cpu: 250m, memory: 512Mi }
-    limits:   { cpu: "1",  memory: 2Gi   }
+    # Kept deliberately small so a short-lived demo can schedule on t3.micro.
+    # Production task sizing must be set from measured workload requirements.
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }

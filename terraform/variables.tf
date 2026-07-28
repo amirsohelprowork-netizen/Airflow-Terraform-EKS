@@ -25,16 +25,16 @@ variable "admin_cidr_blocks" {
 }
 variable "system_node_instance_type" {
   type    = string
-  default = "t3.medium"
+  default = "t3.micro"
 }
 variable "worker_node_instance_type" {
   type    = string
-  default = "t3.medium"
+  default = "t3.micro"
 }
 variable "system_node_min_size" {
   type        = number
-  default     = 1
-  description = "Demo default. Production should use at least three nodes across AZs."
+  default     = 3
+  description = "Three Free Tier-eligible micro nodes spread the demo control plane. Production sizing requires load testing."
 }
 variable "system_node_max_size" {
   type        = number

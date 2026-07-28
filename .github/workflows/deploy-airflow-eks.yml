@@ -108,7 +108,9 @@ jobs:
             --set-string env[0].value="s3://$AIRFLOW_LOG_BUCKET/logs" \
             --set-string workers.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
             --set-string scheduler.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
-            --set-string apiServer.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN"
+            --set-string apiServer.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
+            --set-string dagProcessor.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
+            --set-string triggerer.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN"
 
       - name: Verify control-plane pods
         run: kubectl get pods --namespace "$AIRFLOW_NAMESPACE"

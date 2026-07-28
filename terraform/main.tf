@@ -261,7 +261,9 @@ module "airflow_irsa" {
       namespace_service_accounts = [
         "airflow:airflow-worker", 
         "airflow:airflow-scheduler",
-        "airflow:airflow-api-server"
+        "airflow:airflow-api-server",
+        "airflow:airflow-dag-processor",
+        "airflow:airflow-triggerer"
       ]
     }
   }

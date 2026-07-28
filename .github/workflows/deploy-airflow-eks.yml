@@ -79,6 +79,7 @@ jobs:
             --set awsRegion="$AWS_REGION" \
             --set rbac.serviceAccount.create=true \
             --set-string rbac.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$CLUSTER_AUTOSCALER_IRSA_ROLE_ARN" \
+            --timeout 15m \
             --wait
 
       - name: Require Airflow bootstrap secrets

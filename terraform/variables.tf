@@ -24,31 +24,44 @@ variable "admin_cidr_blocks" {
   description = "CIDRs permitted to reach the public EKS API endpoint. GitHub-hosted runners require 0.0.0.0/0; use a private endpoint and self-hosted runner for production."
 }
 variable "system_node_instance_type" {
-  type    = string
-  default = "t3.small"
+  type        = string
+  default     = "m7i-flex.large"
+  description = "Free Tier-eligible on post-2025 Free plan accounts (8 GiB). t3.micro cannot host Airflow control-plane pods."
 }
 variable "worker_node_instance_type" {
-  type    = string
-  default = "t3.small"
+  type        = string
+  default     = "t3.small"
+  description = "Free Tier-eligible worker size (2 GiB). Prefer scaling from zero over always-on micros."
 }
 variable "system_node_min_size" {
   type        = number
-  default     = 3
-  description = "Three Free Tier-eligible micro nodes spread the demo control plane. Production sizing requires load testing."
+  default     = 2
+  description = "Two m7i-flex.large nodes fit scheduler/api/triggerer/dag-processor without t3.micro OOM risk."
 }
 variable "system_node_max_size" {
   type        = number
-  default     = 3
-  description = "Maximum system nodes for the cost-capped demo profile."
+  default     = 2
+  description = "Keep system capacity fixed in the credit-capped demo profile."
 }
 variable "worker_node_min_size" {
   type        = number
-  default     = 1
-  description = "Set to 1 to guarantee a worker node is always ready for tasks, bypassing autoscaler delay."
+  default     = 0
+  description = "Zero warm workers: Cluster Autoscaler adds t3.small nodes only when KubernetesExecutor pods are Pending."
 }
 variable "max_worker_nodes" {
-  type    = number
-  default = 3
+  type        = number
+  default     = 2
+  description = "Hard cap for demo cost control. Raise only after a measured load test."
+}
+variable "budget_limit_usd" {
+  type        = number
+  default     = 40
+  description = "Monthly AWS Budget threshold (USD). Pair with budget_alert_email."
+}
+variable "budget_alert_email" {
+  type        = string
+  default     = ""
+  description = "If set, creates a monthly cost budget with 50/80/100% notifications. Leave empty to skip."
 }
 variable "db_instance_class" {
   type    = string

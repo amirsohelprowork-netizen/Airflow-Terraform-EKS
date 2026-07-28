@@ -26,13 +26,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate DAG syntax
-        run: python scripts/validate_dags.py
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate DAG syntax and imports
+        run: |
+          python -m pip install --upgrade pip
+          # Match the image Airflow version so import failures fail the pipeline.
+          pip install "apache-airflow==3.2.2" "apache-airflow-providers-amazon" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.2.2/constraints-3.12.txt"
+          python scripts/validate_dags.py --strict
+
+      - name: Resolve deploy role ARN
+        id: role
+        run: |
+          if [ -n "${{ vars.GITHUB_DEPLOY_ROLE_ARN }}" ]; then
+            echo "arn=${{ vars.GITHUB_DEPLOY_ROLE_ARN }}" >> "$GITHUB_OUTPUT"
+          else
+            # Convention matches terraform local.name = "${project}-${environment}"
+            echo "arn=arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/airflow-enterprise-demo-github-deploy" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/airflow-enterprise-demo-github-deploy
+          role-to-assume: ${{ steps.role.outputs.arn }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
@@ -71,6 +90,16 @@ jobs:
           helm repo add autoscaler https://kubernetes.github.io/autoscaler
           helm repo update
 
+      - name: Render Airflow Helm chart
+        run: |
+          helm template airflow apache-airflow/airflow \
+            --version 1.22.0 \
+            --namespace "$AIRFLOW_NAMESPACE" \
+            --values helm/airflow/values.yaml \
+            --set images.airflow.repository=example.dkr.ecr.us-east-1.amazonaws.com/airflow \
+            --set images.airflow.tag=lint \
+            >/dev/null
+
       - name: Deploy Cluster Autoscaler
         run: |
           helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
@@ -102,6 +131,7 @@ jobs:
             --namespace "$AIRFLOW_NAMESPACE" \
             --values helm/airflow/values.yaml \
             --timeout 25m \
+            --wait \
             --set images.airflow.repository="$ECR_REPOSITORY" \
             --set images.airflow.tag="$IMAGE_TAG" \
             --set-string createUserJob.defaultUser.password="$AIRFLOW_ADMIN_PASSWORD" \
@@ -113,11 +143,16 @@ jobs:
             --set-string dagProcessor.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN" \
             --set-string triggerer.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="$AIRFLOW_IRSA_ROLE_ARN"
 
-      - name: Verify control-plane pods
-        run: kubectl get pods --namespace "$AIRFLOW_NAMESPACE"
+      - name: Verify control-plane pods are Ready
+        run: |
+          kubectl get pods --namespace "$AIRFLOW_NAMESPACE"
+          kubectl wait --for=condition=Ready pod \
+            -l "component in (scheduler,api-server,dag-processor,triggerer)" \
+            --namespace "$AIRFLOW_NAMESPACE" \
+            --timeout=10m
 
       - name: Airflow access instructions
         run: |
-          echo "The safe demo default has no public load balancer."
+          echo "Demo has no public load balancer (cost + security)."
           echo "Run: kubectl -n $AIRFLOW_NAMESPACE port-forward svc/airflow-api-server 8080:8080"
-          echo "Enable public ingress only after configuring TLS and authentication."
+          echo "Destroy immediately after the demo via the Destroy Demo Stack workflow."

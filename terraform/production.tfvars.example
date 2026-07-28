@@ -1,4 +1,5 @@
 # Production-shaped profile: use only after a capacity, resilience, and cost review.
+# Not Free Tier — expect material spend vs the demo defaults.
 kubernetes_version       = "REPLACE_WITH_SUPPORTED_EKS_VERSION"
 admin_cidr_blocks        = ["CORPORATE_VPN_CIDR"]
 github_repository        = "YOUR_ORG/YOUR_REPO"
@@ -9,6 +10,9 @@ system_node_instance_type = "m6i.large"
 system_node_min_size      = 3
 system_node_max_size      = 6
 worker_node_instance_type = "m6i.large"
+worker_node_min_size      = 1
 max_worker_nodes          = 20
 enable_multi_az           = true
 backup_retention_days     = 14
+budget_limit_usd          = 500
+budget_alert_email        = "platform-oncall@example.com"

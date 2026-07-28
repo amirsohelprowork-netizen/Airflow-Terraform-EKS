@@ -1,46 +1,40 @@
 # =============================================================================
-# Apache Airflow 2.10.5 — Production-Grade Enterprise Helm Values
-# Helm Chart: apache-airflow/airflow v1.16.0
+# Apache Airflow 3.2.2 — Free Tier / credit-capped demo Helm values
+# Helm chart: apache-airflow/airflow v1.22.0
+# Control plane runs on m7i-flex.large system nodes (not t3.micro).
 # =============================================================================
 
 executor: KubernetesExecutor
 airflowVersion: "3.2.2"
 
-# ── Static Webserver Secret Key ──────────────────────────────────────────────
-# Prevents the dynamic-key warning and unnecessary webserver restarts.
-# Supply this through a Kubernetes Secret or --set-string in the deployment.
-# Never commit a real key to this public template.
+# Supply via GitHub secret + --set-string in CI. Never commit a real key.
 apiSecretKey: "CHANGE-ME-BEFORE-PRODUCTION"
 
-# ── Airflow Image ────────────────────────────────────────────────────────────
 images:
   airflow:
     repository: apache/airflow
     tag: 3.2.2
     pullPolicy: IfNotPresent
 
-# ── External RDS PostgreSQL (no in-cluster Postgres) ─────────────────────────
 postgresql:
   enabled: false
 
 data:
-  metadataSecretName: airflow-metadata   # created by bootstrap-airflow-secrets.ps1
+  metadataSecretName: airflow-metadata
 
-# ── DAGs ─────────────────────────────────────────────────────────────────────
 dags:
   persistence:
     enabled: false
   gitSync:
     enabled: false
 
-# ── Webserver ────────────────────────────────────────────────────────────────
 apiServer:
-  replicas: 1                            # single replica is fine for demo
+  replicas: 1
   service:
     type: ClusterIP
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
-    limits:   { memory: 512Mi   }
+    requests: { cpu: 100m, memory: 512Mi }
+    limits:   { cpu: 500m, memory: 1Gi }
 
 createUserJob:
   defaultUser:
@@ -52,89 +46,77 @@ createUserJob:
     firstName: Admin
     lastName: User
 
-# ── Ingress via NGINX Ingress Controller (HTTPS) ────────────────────────────
 ingress:
   web:
     enabled: false
     ingressClassName: nginx
     annotations:
-      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-    host: ""                             # accept any hostname
+    host: ""
   apiServer:
     enabled: false
     ingressClassName: nginx
     annotations:
-      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-    host: ""                             # accept any hostname
+    host: ""
 
-# ── Scheduler ────────────────────────────────────────────────────────────────
 scheduler:
   replicas: 1
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
-    limits:   { memory: 1024Mi   }
+    requests: { cpu: 200m, memory: 512Mi }
+    limits:   { cpu: 1000m, memory: 1536Mi }
 
-# ── Triggerer ────────────────────────────────────────────────────────────────
 triggerer:
   replicas: 1
   persistence:
     enabled: false
   resources:
-    requests: { cpu: 50m, memory: 128Mi }
-    limits:   { memory: 512Mi   }
+    requests: { cpu: 50m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 768Mi }
 
-# ── StatsD ───────────────────────────────────────────────────────────────────
 statsd:
   resources:
-    requests: { cpu: 20m,  memory: 32Mi  }
+    requests: { cpu: 20m,  memory: 32Mi }
     limits:   { memory: 64Mi }
 
-# ── DAG Processor ────────────────────────────────────────────────────────────
 dagProcessor:
   resources:
-    requests: { cpu: 50m, memory: 128Mi }
-    limits:   { memory: 512Mi }
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 768Mi }
 
-# ── Logs ─────────────────────────────────────────────────────────────────────
 logs:
   persistence:
     enabled: false
 
-# ── Airflow Configuration Overrides ──────────────────────────────────────────
 config:
   core:
     load_examples: "False"
-    parallelism: "32"
-    max_active_runs_per_dag: "4"
+    parallelism: "16"
+    max_active_runs_per_dag: "2"
   scheduler:
     parsing_processes: "2"
-    max_tis_per_query: "256"
+    max_tis_per_query: "128"
   logging:
     remote_logging: "True"
     remote_log_conn_id: "aws_default"
   api:
     expose_config: "False"
-    instance_name: "Enterprise Airflow"
+    instance_name: "Enterprise Airflow Demo"
 
-# ── Environment Variables ────────────────────────────────────────────────────
 env:
   - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
-    value: "s3://REPLACED-AT-DEPLOY-TIME/logs"   # overridden by --set-string in CI/CD pipeline
+    value: "s3://REPLACED-AT-DEPLOY-TIME/logs"
   - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
     value: airflow
 
-# Note: IAM Roles for Service Accounts (IRSA) annotations are injected dynamically
-# during deployment via `helm upgrade --set` in the GitHub Actions pipeline.
+# IRSA annotations are injected by the Deploy Airflow GitHub Actions workflow.
 
-# ── Node Placement ───────────────────────────────────────────────────────────
 nodeSelector:
   workload: airflow-system
 
-# ── Worker Pod Resources (KubernetesExecutor task pods) ──────────────────────
 workers:
-  # KubernetesExecutor task pods must land on the autoscaled task node group.
   nodeSelector:
     workload: airflow-task
   tolerations:
@@ -143,7 +125,6 @@ workers:
       value: airflow-task
       effect: NoSchedule
   resources:
-    # Kept deliberately small so a short-lived demo can schedule on t3.micro.
-    # Production task sizing must be set from measured workload requirements.
+    # Sized for Free Tier-eligible t3.small workers (2 GiB).
     requests: { cpu: 100m, memory: 256Mi }
-    limits:   { cpu: 500m, memory: 512Mi }
+    limits:   { cpu: 500m, memory: 768Mi }

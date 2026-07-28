@@ -17,16 +17,16 @@ data "aws_iam_policy_document" "github_assume_role" {
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
+    # Least privilege for GitHub OIDC: only this repository, main branch and
+    # the protected "demo" environment — never an org-wide repo:* wildcard.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = [
-        "repo:${var.github_repository}:*",
-        "repo:${var.github_repository}@*:*",
-        "repo:${lower(var.github_repository)}:*",
-        "repo:${lower(var.github_repository)}@*:*",
-        "repo:${split("/", var.github_repository)[0]}/*:*",
-        "repo:${split("/", var.github_repository)[0]}@*/*:*"
+      values = [
+        "repo:${var.github_repository}:ref:refs/heads/main",
+        "repo:${lower(var.github_repository)}:ref:refs/heads/main",
+        "repo:${var.github_repository}:environment:demo",
+        "repo:${lower(var.github_repository)}:environment:demo"
       ]
     }
   }

@@ -91,6 +91,9 @@ module "eks" {
     }
   }
 
+  # Demo capacity (Free Tier / credits):
+  # - system: m7i-flex.large (8 GiB) — Airflow control plane cannot fit on t3.micro (1 GiB)
+  # - workers: t3.small from 0 — KubernetesExecutor + Cluster Autoscaler
   eks_managed_node_groups = {
     system = {
       name           = "system"
@@ -111,7 +114,7 @@ module "eks" {
         airflow = { key = "workload", value = "airflow-task", effect = "NO_SCHEDULE" }
       }
       tags = {
-        "k8s.io/cluster-autoscaler/enabled"     = "true"
+        "k8s.io/cluster-autoscaler/enabled"       = "true"
         "k8s.io/cluster-autoscaler/${local.name}" = "owned"
       }
     }

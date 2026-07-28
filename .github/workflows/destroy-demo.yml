@@ -1,0 +1,77 @@
+name: Destroy Demo Stack
+
+# Tear down Helm releases then Terraform. Required for Free Tier / credit accounts
+# so EKS + NAT do not keep burning budget after a demo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type destroy to confirm full teardown'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: airflow-demo-destroy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AIRFLOW_NAMESPACE: airflow
+  TF_STATE_KEY: ${{ vars.TF_STATE_KEY || 'airflow-demo/terraform.tfstate' }}
+  TF_VAR_kubernetes_version: ${{ vars.TF_VAR_KUBERNETES_VERSION }}
+  TF_VAR_admin_cidr_blocks: ${{ vars.TF_VAR_ADMIN_CIDR_BLOCKS }}
+  TF_VAR_github_repository: ${{ github.repository }}
+  TF_VAR_terraform_state_bucket: ${{ vars.TF_STATE_BUCKET }}
+  TF_VAR_terraform_lock_table: ${{ vars.TF_LOCK_TABLE }}
+  TF_VAR_budget_alert_email: ${{ vars.BUDGET_ALERT_EMAIL }}
+  TF_VAR_budget_limit_usd: ${{ vars.BUDGET_LIMIT_USD || '40' }}
+
+jobs:
+  destroy:
+    if: inputs.confirm == 'destroy'
+    runs-on: ubuntu-latest
+    environment: demo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: Load cluster name from remote state
+        working-directory: ./terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE }}" \
+            -backend-config="key=${{ env.TF_STATE_KEY }}" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+          echo "EKS_CLUSTER=$(terraform output -raw cluster_name)" >> "$GITHUB_ENV"
+
+      - name: Uninstall Helm releases
+        continue-on-error: true
+        run: |
+          aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+          helm uninstall airflow -n "$AIRFLOW_NAMESPACE" || true
+          helm uninstall cluster-autoscaler -n kube-system || true
+
+      - name: Terraform Destroy
+        working-directory: ./terraform
+        run: terraform destroy -auto-approve
+
+      - name: Reminder
+        run: |
+          echo "AWS resources from this stack should be gone."
+          echo "Optionally delete the Terraform state bucket and DynamoDB lock table if you no longer need them."

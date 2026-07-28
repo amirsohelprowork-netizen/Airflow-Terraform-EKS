@@ -13,9 +13,12 @@ permissions:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   TF_VAR_kubernetes_version: ${{ vars.TF_VAR_KUBERNETES_VERSION }}
+  TF_VAR_admin_cidr_blocks: ${{ vars.TF_VAR_ADMIN_CIDR_BLOCKS }}
   TF_VAR_github_repository: ${{ github.repository }}
   TF_VAR_terraform_state_bucket: ${{ vars.TF_STATE_BUCKET }}
   TF_VAR_terraform_lock_table: ${{ vars.TF_LOCK_TABLE }}
+  TF_VAR_budget_alert_email: ${{ vars.BUDGET_ALERT_EMAIL }}
+  TF_VAR_budget_limit_usd: ${{ vars.BUDGET_LIMIT_USD || '40' }}
   TF_STATE_KEY: ${{ vars.TF_STATE_KEY || 'airflow-demo/terraform.tfstate' }}
 
 jobs:
@@ -57,3 +60,12 @@ jobs:
       - name: Terraform Apply
         working-directory: ./terraform
         run: terraform apply -auto-approve tfplan
+
+      - name: Publish deploy role for application pipeline
+        working-directory: ./terraform
+        run: |
+          echo "Set GitHub variable GITHUB_DEPLOY_ROLE_ARN to:"
+          terraform output -raw github_deploy_role_arn
+          echo ""
+          echo "Demo capacity:"
+          terraform output -json demo_capacity_summary

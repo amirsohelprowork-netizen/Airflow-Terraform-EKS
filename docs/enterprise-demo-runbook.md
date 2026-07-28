@@ -2,44 +2,35 @@
 
 ## Scope
 
-This is a cost-capped, short-lived EKS demonstration. It mirrors core
-enterprise patterns—immutable images, RDS metadata, remote logs, OIDC, IRSA,
-and isolated KubernetesExecutor pods—but it is not highly available or a
-capacity-certified production platform.
+Cost-capped, short-lived EKS demonstration. Enterprise patterns (immutable
+images, RDS, remote logs, OIDC, IRSA, KubernetesExecutor) on Free Tier–eligible
+node types that can actually schedule Airflow — not `t3.micro` for the control plane.
 
 ## Required GitHub configuration
 
-Run `scripts/bootstrap-remote-state.ps1` once, then add its output as
-repository variables:
+Run `scripts/bootstrap-remote-state.ps1` once, then add:
 
-- `AWS_REGION`, `AWS_ACCOUNT_ID`
-- `TF_STATE_BUCKET`, `TF_LOCK_TABLE`, `TF_STATE_KEY`
-- `TF_VAR_KUBERNETES_VERSION`
-- `TF_VAR_ADMIN_CIDR_BLOCKS` (`["0.0.0.0/0"]` is required by GitHub-hosted
-  runners; production needs a private endpoint and a VPC runner.)
+**Variables:** `AWS_REGION`, `AWS_ACCOUNT_ID`, `TF_STATE_BUCKET`, `TF_LOCK_TABLE`,
+`TF_STATE_KEY`, `TF_VAR_KUBERNETES_VERSION`, `TF_VAR_ADMIN_CIDR_BLOCKS`,
+`BUDGET_ALERT_EMAIL` (recommended), optional `BUDGET_LIMIT_USD`, optional
+`GITHUB_DEPLOY_ROLE_ARN`.
 
-Add the following repository secrets:
-
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` for the one-time infrastructure
-  bootstrap only
-- `AIRFLOW_ADMIN_PASSWORD`, `AIRFLOW_API_SECRET_KEY`
+**Secrets:** `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (infra/destroy only),
+`AIRFLOW_ADMIN_PASSWORD`, `AIRFLOW_API_SECRET_KEY`.
 
 ## Demo validation
 
-1. Run infrastructure deployment and confirm Terraform state is in S3.
-2. Deploy Airflow and use local port-forwarding to reach the UI.
-3. Trigger `controlled_kubernetes_scale_test` with 20 tasks.
-4. Watch task Pods and the worker Auto Scaling Group. The maximum task node
-   count is deliberately capped at three in the demo profile.
+1. Deploy infrastructure; confirm state in S3 and budget alert email (if configured).
+2. Deploy Airflow; port-forward to the UI.
+3. Trigger `controlled_kubernetes_scale_test` with ~20 tasks.
+4. Confirm worker ASG scales from 0 toward the capped max (default 2).
 
 ## Cleanup
 
-```bash
-helm uninstall airflow -n airflow
-helm uninstall cluster-autoscaler -n kube-system
-cd terraform
-terraform destroy
-```
+GitHub Actions → **Destroy Demo Stack** → confirm with `destroy`.
 
-Only after the stack is destroyed, delete the Terraform state bucket and lock
-table if their history is no longer needed.
+Or:
+
+```powershell
+.\scripts\teardown.ps1 -AwsRegion us-east-1
+```

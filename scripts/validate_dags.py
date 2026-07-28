@@ -1,29 +1,33 @@
 """
 DAG Validation Script
 Validates all DAG files for syntax errors and import issues.
-Used in CI/CD pipeline before deploying to EKS.
+Used in CI/CD before deploying to EKS.
+
+Use --strict in CI (Airflow installed) so import failures fail the build.
+Local runs without Airflow still fail on syntax errors and warn on imports.
 """
 
+from __future__ import annotations
+
+import argparse
 import importlib.util
 import os
 import sys
 
 
-def validate_dag_file(filepath: str) -> bool:
-    """Validate a single DAG file by attempting to compile and import it."""
+def validate_dag_file(filepath: str, *, strict: bool) -> bool:
+    """Validate a single DAG file by compiling and importing it."""
     filename = os.path.basename(filepath)
 
-    # Step 1: Check Python syntax
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             source = f.read()
         compile(source, filepath, "exec")
-        print(f"  ✅ Syntax OK: {filename}")
+        print(f"  OK syntax: {filename}")
     except SyntaxError as e:
-        print(f"  ❌ Syntax Error in {filename}: {e}")
+        print(f"  FAIL syntax in {filename}: {e}")
         return False
 
-    # Step 2: Try to import the module
     try:
         spec = importlib.util.spec_from_file_location(
             filename.replace(".py", ""), filepath
@@ -31,22 +35,31 @@ def validate_dag_file(filepath: str) -> bool:
         if spec and spec.loader:
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            print(f"  ✅ Import OK: {filename}")
+            print(f"  OK import: {filename}")
     except Exception as e:
-        print(f"  ⚠️  Import Warning in {filename}: {e}")
-        print(f"     (This may be OK if the DAG uses runtime-only dependencies)")
-        # Don't fail on import errors — some deps may only exist in MWAA
+        if strict:
+            print(f"  FAIL import in {filename}: {e}")
+            return False
+        print(f"  WARN import in {filename}: {e}")
+        print("     (non-strict mode; CI should pass --strict with Airflow installed)")
         return True
 
     return True
 
 
 def main() -> int:
-    """Validate all DAG files in the dags/ directory."""
+    parser = argparse.ArgumentParser(description="Validate Airflow DAG files")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail on import errors (required in CI)",
+    )
+    args = parser.parse_args()
+
     dags_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dags")
 
     if not os.path.isdir(dags_dir):
-        print(f"❌ DAGs directory not found: {dags_dir}")
+        print(f"FAIL: DAGs directory not found: {dags_dir}")
         return 1
 
     dag_files = [
@@ -56,23 +69,24 @@ def main() -> int:
     ]
 
     if not dag_files:
-        print("⚠️  No DAG files found in dags/ directory")
+        print("WARN: No DAG files found in dags/")
         return 0
 
-    print(f"\n🔍 Validating {len(dag_files)} DAG file(s)...\n")
+    mode = "strict" if args.strict else "non-strict"
+    print(f"\nValidating {len(dag_files)} DAG file(s) ({mode})...\n")
 
     errors = 0
     for filepath in sorted(dag_files):
-        if not validate_dag_file(filepath):
+        if not validate_dag_file(filepath, strict=args.strict):
             errors += 1
 
-    print(f"\n{'='*40}")
+    print("=" * 40)
     if errors:
-        print(f"❌ Validation FAILED: {errors} file(s) with errors")
+        print(f"FAIL: {errors} file(s) with errors")
         return 1
-    else:
-        print(f"✅ All {len(dag_files)} DAG file(s) validated successfully!")
-        return 0
+
+    print(f"OK: All {len(dag_files)} DAG file(s) validated")
+    return 0
 
 
 if __name__ == "__main__":

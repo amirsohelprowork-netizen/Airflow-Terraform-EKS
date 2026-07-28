@@ -74,7 +74,7 @@ scheduler:
   replicas: 1
   resources:
     requests: { cpu: 100m, memory: 256Mi }
-    limits:   { memory: 512Mi   }
+    limits:   { memory: 1024Mi   }
 
 # ── Triggerer ────────────────────────────────────────────────────────────────
 triggerer:
@@ -83,7 +83,7 @@ triggerer:
     enabled: false
   resources:
     requests: { cpu: 50m, memory: 128Mi }
-    limits:   { memory: 256Mi   }
+    limits:   { memory: 512Mi   }
 
 # ── StatsD ───────────────────────────────────────────────────────────────────
 statsd:
@@ -95,7 +95,7 @@ statsd:
 dagProcessor:
   resources:
     requests: { cpu: 50m, memory: 128Mi }
-    limits:   { memory: 256Mi }
+    limits:   { memory: 512Mi }
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
 logs:

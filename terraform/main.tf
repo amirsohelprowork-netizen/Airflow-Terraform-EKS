@@ -213,6 +213,7 @@ resource "aws_s3_bucket_public_access_block" "airflow" {
 resource "aws_ecr_repository" "airflow" {
   name                 = "${local.name}/airflow"
   image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
   image_scanning_configuration { scan_on_push = true }
 }
 

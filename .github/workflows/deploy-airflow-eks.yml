@@ -75,8 +75,8 @@ jobs:
         run: |
           echo "Waiting for Load Balancer to provision..."
           sleep 10
-          URL=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+          URL=$(kubectl get svc airflow-webserver -n "$AIRFLOW_NAMESPACE" -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
           echo "=========================================================="
           echo "🎉 AIRFLOW IS LIVE!"
-          echo "🔗 URL: http://$URL"
+          echo "🌐 URL: http://$URL:8080"
           echo "=========================================================="

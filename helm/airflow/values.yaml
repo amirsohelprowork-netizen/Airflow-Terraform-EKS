@@ -34,7 +34,7 @@ dags:
 webserver:
   replicas: 1                            # single replica is fine for demo
   service:
-    type: ClusterIP
+    type: LoadBalancer
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits:   { cpu: 200m,  memory: 384Mi   }

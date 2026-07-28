@@ -49,7 +49,16 @@ jobs:
         run: |
           aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
           helm repo add apache-airflow https://airflow.apache.org
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm repo update
+
+      - name: Deploy NGINX Ingress Controller
+        run: |
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+            --namespace ingress-nginx --create-namespace \
+            --set controller.service.type=LoadBalancer \
+            --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb" \
+            --wait
 
       - name: Deploy chart
         env:
@@ -75,8 +84,8 @@ jobs:
         run: |
           echo "Waiting for Load Balancer to provision..."
           sleep 10
-          URL=$(kubectl get svc airflow-webserver -n "$AIRFLOW_NAMESPACE" -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+          URL=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
           echo "=========================================================="
           echo "🎉 AIRFLOW IS LIVE!"
-          echo "🌐 URL: http://$URL:8080"
+          echo "🌐 URL: http://$URL"
           echo "=========================================================="

@@ -22,9 +22,11 @@ data "aws_iam_policy_document" "github_assume_role" {
       variable = "token.actions.githubusercontent.com:sub"
       values   = [
         "repo:${var.github_repository}:*",
+        "repo:${var.github_repository}@*:*",
         "repo:${lower(var.github_repository)}:*",
-        "repo:amirsohelprowork-netizen/*",
-        "repo:AmirSohelProWork-Netizen/*"
+        "repo:${lower(var.github_repository)}@*:*",
+        "repo:${split("/", var.github_repository)[0]}/*:*",
+        "repo:${split("/", var.github_repository)[0]}@*/*:*"
       ]
     }
   }

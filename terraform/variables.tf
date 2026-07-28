@@ -43,8 +43,8 @@ variable "system_node_max_size" {
 }
 variable "worker_node_min_size" {
   type        = number
-  default     = 0
-  description = "Keep at zero for the demo; Cluster Autoscaler adds task capacity on demand."
+  default     = 1
+  description = "Set to 1 to guarantee a worker node is always ready for tasks, bypassing autoscaler delay."
 }
 variable "max_worker_nodes" {
   type    = number

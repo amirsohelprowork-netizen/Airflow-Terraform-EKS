@@ -1,5 +1,10 @@
 data "aws_caller_identity" "current" {}
 
+locals {
+  github_owner = split("/", var.github_repository)[0]
+  github_repo  = split("/", var.github_repository)[1]
+}
+
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
@@ -17,8 +22,9 @@ data "aws_iam_policy_document" "github_assume_role" {
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
-    # Least privilege for GitHub OIDC: only this repository, main branch and
-    # the protected "demo" environment — never an org-wide repo:* wildcard.
+    # Support classic and GitHub immutable OIDC subjects (post-2026 / renamed repos):
+    #   repo:ORG/REPO:environment:demo
+    #   repo:ORG@OWNER_ID/REPO@REPO_ID:environment:demo
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
@@ -26,7 +32,11 @@ data "aws_iam_policy_document" "github_assume_role" {
         "repo:${var.github_repository}:ref:refs/heads/main",
         "repo:${lower(var.github_repository)}:ref:refs/heads/main",
         "repo:${var.github_repository}:environment:demo",
-        "repo:${lower(var.github_repository)}:environment:demo"
+        "repo:${lower(var.github_repository)}:environment:demo",
+        "repo:${local.github_owner}@*/${local.github_repo}@*:ref:refs/heads/main",
+        "repo:${lower(local.github_owner)}@*/${lower(local.github_repo)}@*:ref:refs/heads/main",
+        "repo:${local.github_owner}@*/${local.github_repo}@*:environment:demo",
+        "repo:${lower(local.github_owner)}@*/${lower(local.github_repo)}@*:environment:demo"
       ]
     }
   }

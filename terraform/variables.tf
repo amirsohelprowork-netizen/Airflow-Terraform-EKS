@@ -25,11 +25,11 @@ variable "admin_cidr_blocks" {
 }
 variable "system_node_instance_type" {
   type    = string
-  default = "t3.micro"
+  default = "t3.small"
 }
 variable "worker_node_instance_type" {
   type    = string
-  default = "t3.micro"
+  default = "t3.small"
 }
 variable "system_node_min_size" {
   type        = number

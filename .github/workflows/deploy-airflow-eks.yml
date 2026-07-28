@@ -117,8 +117,11 @@ jobs:
           AIRFLOW_ADMIN_PASSWORD: ${{ secrets.AIRFLOW_ADMIN_PASSWORD }}
           AIRFLOW_API_SECRET_KEY: ${{ secrets.AIRFLOW_API_SECRET_KEY }}
         run: |
-          test -n "$AIRFLOW_ADMIN_PASSWORD"
-          test -n "$AIRFLOW_API_SECRET_KEY"
+          if [ -z "$AIRFLOW_ADMIN_PASSWORD" ] || [ -z "$AIRFLOW_API_SECRET_KEY" ]; then
+            echo "::error::Missing AIRFLOW_ADMIN_PASSWORD or AIRFLOW_API_SECRET_KEY."
+            echo "Re-run ./scripts/bootstrap.sh --email you@example.com (or bootstrap.ps1) on your fork."
+            exit 1
+          fi
 
       - name: Deploy Airflow chart
         env:
@@ -151,8 +154,20 @@ jobs:
             --namespace "$AIRFLOW_NAMESPACE" \
             --timeout=10m
 
-      - name: Airflow access instructions
+      - name: Success summary
         run: |
-          echo "Demo has no public load balancer (cost + security)."
-          echo "Run: kubectl -n $AIRFLOW_NAMESPACE port-forward svc/airflow-api-server 8080:8080"
-          echo "Destroy immediately after the demo via the Destroy Demo Stack workflow."
+          {
+            echo "## Airflow deploy succeeded"
+            echo ""
+            echo "Open the UI (no public load balancer):"
+            echo '```bash'
+            echo "./scripts/open-airflow.sh"
+            echo "# or: .\\scripts\\open-airflow.ps1"
+            echo '```'
+            echo ""
+            echo "Login: \`admin\` / GitHub secret \`AIRFLOW_ADMIN_PASSWORD\`"
+            echo ""
+            echo "When finished: run **Destroy Demo Stack** and type \`destroy\`."
+            echo ""
+            echo "Problems? See [docs/TROUBLESHOOTING.md](../docs/TROUBLESHOOTING.md)."
+          } >> "$GITHUB_STEP_SUMMARY"

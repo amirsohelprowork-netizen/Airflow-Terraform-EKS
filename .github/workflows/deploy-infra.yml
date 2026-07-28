@@ -27,6 +27,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Preflight — required GitHub configuration
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          missing=0
+          require_var() {
+            local name="$1" value="$2"
+            if [ -z "$value" ]; then
+              echo "::error::Missing GitHub Actions variable or secret: $name"
+              echo "Run ./scripts/bootstrap.sh --email you@example.com (or bootstrap.ps1) on your fork."
+              missing=1
+            fi
+          }
+          require_var AWS_REGION "${{ vars.AWS_REGION }}"
+          require_var AWS_ACCOUNT_ID "${{ vars.AWS_ACCOUNT_ID }}"
+          require_var TF_STATE_BUCKET "${{ vars.TF_STATE_BUCKET }}"
+          require_var TF_LOCK_TABLE "${{ vars.TF_LOCK_TABLE }}"
+          require_var TF_VAR_KUBERNETES_VERSION "${{ vars.TF_VAR_KUBERNETES_VERSION }}"
+          require_var AWS_ACCESS_KEY_ID "$AWS_ACCESS_KEY_ID"
+          require_var AWS_SECRET_ACCESS_KEY "$AWS_SECRET_ACCESS_KEY"
+          if [ -z "${{ vars.BUDGET_ALERT_EMAIL }}" ]; then
+            echo "::warning::BUDGET_ALERT_EMAIL is empty — no AWS Budget will be created. Set it to avoid surprise charges."
+          fi
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          echo "Preflight OK"
+
       - name: Normalize admin CIDR list for Terraform
         env:
           RAW_CIDRS: ${{ vars.TF_VAR_ADMIN_CIDR_BLOCKS }}
@@ -73,11 +100,24 @@ jobs:
         working-directory: ./terraform
         run: terraform apply -auto-approve tfplan
 
-      - name: Publish deploy role for application pipeline
+      - name: Next steps summary
         working-directory: ./terraform
         run: |
-          echo "Set GitHub variable GITHUB_DEPLOY_ROLE_ARN to:"
-          terraform output -raw github_deploy_role_arn
-          echo ""
-          echo "Demo capacity:"
-          terraform output -json demo_capacity_summary
+          ROLE_ARN="$(terraform output -raw github_deploy_role_arn)"
+          {
+            echo "## Infrastructure deploy succeeded"
+            echo ""
+            echo "1. (Optional) Set repository variable \`GITHUB_DEPLOY_ROLE_ARN\` to:"
+            echo "   \`$ROLE_ARN\`"
+            echo "2. Run workflow **Deploy Airflow to EKS**."
+            echo "3. Open the UI with \`./scripts/open-airflow.sh\` or \`open-airflow.ps1\`."
+            echo "4. When finished, run **Destroy Demo Stack** (type \`destroy\`)."
+            echo ""
+            echo "### Demo capacity"
+            echo '```json'
+            terraform output -json demo_capacity_summary
+            echo '```'
+            echo ""
+            echo "If Airflow deploy fails on OIDC, see [docs/TROUBLESHOOTING.md](../docs/TROUBLESHOOTING.md)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Set GitHub variable GITHUB_DEPLOY_ROLE_ARN to: $ROLE_ARN"

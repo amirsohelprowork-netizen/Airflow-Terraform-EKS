@@ -95,9 +95,9 @@ module "eks" {
     system = {
       name           = "system-v3"
       instance_types = [var.system_node_instance_type]
-      min_size       = 5
-      max_size       = 8
-      desired_size   = 5
+      min_size       = 8
+      max_size       = 12
+      desired_size   = 8
       labels         = { workload = "airflow-system" }
     }
     workers = {

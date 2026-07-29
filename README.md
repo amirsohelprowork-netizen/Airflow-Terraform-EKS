@@ -97,8 +97,10 @@ Leaving EKS up overnight will burn credits.
 
 | Doc | Purpose |
 | --- | --- |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Fix common CI / OIDC / Helm failures |
-| [docs/enterprise-demo-runbook.md](docs/enterprise-demo-runbook.md) | Operator checklist |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Fix common CI / OIDC / Helm / DAG UI failures |
+| [docs/enterprise-demo-runbook.md](docs/enterprise-demo-runbook.md) | Operator checklist and capacity notes |
+| [docs/PRESENTATION.md](docs/PRESENTATION.md) | Live demo talking points |
+| [docs/INTERVIEW_SCRIPT.md](docs/INTERVIEW_SCRIPT.md) | Architecture interview Q&A |
 | [SECURITY.md](SECURITY.md) | Secrets & reporting |
 | [terraform/production.tfvars.example](terraform/production.tfvars.example) | Larger paid profile (not Free Tier) |
 

@@ -1,42 +1,61 @@
-# 🎙️ Mock Interview: Airflow on EKS
+# Mock Interview: Airflow on EKS
 
-**Role**: Junior DevOps Engineer  
+**Role**: Junior / Mid DevOps or Platform Engineer  
 **Interviewer**: Senior DevOps Engineer (Sarah)  
-**Candidate**: You (Alex)  
+**Candidate**: You (Alex)
+
+Use this as a speaking script. Be honest: the public repo is a **cost-capped demo** that proves enterprise *patterns*, not unlimited production capacity.
 
 ---
 
-**Sarah (Interviewer)**: Hi Alex, thanks for coming in. I was reviewing your GitHub portfolio and I saw the "Enterprise Airflow on EKS" project. I’d love to dive into that. Can you give me a high-level overview of the architecture you built?
+**Sarah**: I saw your Airflow-on-EKS GitHub project. Give me a high-level overview.
 
-**Alex (Candidate)**: Absolutely. I built a production-ready Apache Airflow deployment on AWS. Instead of running it on a single EC2 instance, I used Terraform to provision an Amazon EKS cluster for the compute, and an RDS PostgreSQL instance for the Airflow metadata database. I also set up a two-stage CI/CD pipeline using GitHub Actions to fully automate both the infrastructure provisioning and the Airflow DAG deployments.
+**Alex**: I built a reference Apache Airflow 3 deployment on Amazon EKS. Terraform provisions the platform — VPC, EKS with two node groups, RDS PostgreSQL for metadata, ECR, S3 for remote logs, IRSA, GitHub OIDC, Cluster Autoscaler, and an optional AWS Budget. GitHub Actions has two paths: one applies infrastructure, the other builds an immutable, commit-SHA-tagged image with DAGs, deploys with Helm, and we have a destroy workflow so demos don’t leave EKS burning money. The default profile is deliberately small — about ten concurrent KubernetesExecutor tasks — so people can fork it on credits without pretending it’s a 30k-tasks-per-day farm.
 
-**Sarah**: Interesting. Why EKS? Airflow is often just run on a single virtual machine with the `LocalExecutor` for simplicity. Why did you choose the added complexity of Kubernetes?
+**Sarah**: Why EKS and KubernetesExecutor instead of one EC2 with LocalExecutor?
 
-**Alex**: That's true, a single VM is simpler, but it doesn't scale well and lacks isolation. I chose EKS specifically so I could use the `KubernetesExecutor`. With the `KubernetesExecutor`, every single Airflow task runs in its own isolated Pod. This means tasks don't fight for CPU or memory, and they can't crash the main Airflow scheduler. Plus, if there is a sudden spike in tasks, EKS can automatically spin up new worker nodes to handle the load, and then spin them down to save costs when the queue is empty.
+**Alex**: Isolation and elasticity. Every task is its own Pod on a tainted worker node group, so a bad task can’t take down the scheduler. Cluster Autoscaler can grow workers from zero when pods are Pending and shrink when idle. The control plane stays on separate system nodes — we use Free Tier–eligible `m7i-flex.large` there because `t3.micro`’s 1 GiB can’t host Airflow 3 components reliably.
 
-**Sarah**: Good answer. Let's talk about the CI/CD pipeline. You mentioned a "two-stage" pipeline. How did you structure your GitHub Actions?
+**Sarah**: How is CI/CD structured?
 
-**Alex**: I separated the Platform layer from the Application layer. 
-The first pipeline is the **Infrastructure Pipeline**. It runs `terraform apply` to build or update the VPC, the EKS cluster, and the RDS database. 
-The second pipeline is the **Application Pipeline**. When a developer writes a new DAG, this pipeline builds a new Docker image containing those DAGs, tags it with the unique git commit SHA, pushes it to Amazon ECR, and then uses Helm to upgrade the Airflow deployment on the cluster with zero downtime. 
+**Alex**: Platform vs application. **Deploy Infrastructure** runs Terraform with bootstrap IAM keys — that’s the chicken-and-egg: Terraform creates the GitHub OIDC provider and deploy role. **Deploy Airflow to EKS** assumes that role with OIDC, reads cluster/ECR/bucket ARNs from remote Terraform state (no hand-copying outputs), validates DAGs, builds and pushes the image, deploys Cluster Autoscaler and the official Airflow Helm chart, then waits for pods Ready. Forkers run one bootstrap script that creates state backends and sets GitHub variables/secrets via `gh`.
 
-**Sarah**: Wait, you're baking the DAGs directly into the Docker image? Why not just use a shared file system like Amazon EFS, or Git-Sync to pull DAGs dynamically?
+**Sarah**: You’re baking DAGs into the image. Why not EFS or git-sync?
 
-**Alex**: I chose to bake the DAGs into the Docker image because it enforces **immutability**. If a deployment breaks, I know exactly which Docker image tag caused it, and I can instantly roll back to the previous tag. With EFS or Git-Sync, the code changes dynamically underneath the running containers, which can lead to unpredictable state and makes rollbacks much harder to control in a strict production environment.
+**Alex**: Immutability. Each deploy is a known SHA. Rollback is changing the image tag. Git-sync is fine for some teams, but then the running set of DAGs can drift from what’s in CI. Important detail: Airflow only loads `*.py` files — an extensionless file in `dags/` will sit in the image and never appear in the UI.
 
-**Sarah**: Spot on. Immutability is critical for reliability. Let's talk about security. How is your GitHub Actions pipeline authenticating to AWS? Did you create an IAM User and put the Access Keys in GitHub Secrets?
+**Sarah**: How does GitHub authenticate to AWS for the app pipeline?
 
-**Alex**: That depends on which pipeline we are talking about! This is a classic "chicken-and-egg" bootstrap problem. For the **Application Pipeline** (Phase 2), I absolutely used **OIDC (OpenID Connect)**. I configured AWS to trust my specific GitHub repository, so GitHub just requests a temporary, short-lived token from AWS to deploy the DAGs. There are no passwords to steal. 
-However, for the initial **Infrastructure Pipeline** (Phase 1), I *did* have to use an IAM User Access Key temporarily. Why? Because the OIDC trust relationship itself is created *by* Terraform! Terraform needs access keys to build the OIDC role before Airflow can use it. In a true corporate environment, a dedicated security team would bootstrap the OIDC role for me, but for a standalone project, you have to use keys for the initial build.
+**Alex**: OIDC — `AssumeRoleWithWebIdentity`, no long-lived app keys. The trust policy is scoped to this repository and the `demo` environment. After GitHub’s 2026 immutable subject claims (and renames), the `sub` looks like `repo:org@id/repo@id:environment:demo`, so the IAM trust must match both classic and immutable formats or you get AccessDenied. Infra still uses access keys once to create that trust.
 
-**Sarah**: I love hearing that. What about Airflow itself? Airflow needs to write task logs to an S3 bucket. How did you grant those Kubernetes Pods permission to talk to S3?
+**Sarah**: How do Airflow pods write logs to S3?
 
-**Alex**: I used the exact same least-privilege philosophy. I used **IRSA (IAM Roles for Service Accounts)**. Instead of giving the entire EKS cluster access to S3, IRSA allows me to attach an IAM Role directly to a specific Kubernetes Service Account. So, only the specific Airflow worker Pods get temporary permissions to write to that exact S3 log bucket. The rest of the cluster has no access.
+**Alex**: IRSA. An IAM role is bound to the Airflow service accounts — scheduler, api-server, workers, dag-processor, triggerer — with least-privilege access to that log bucket only, not the whole cluster.
 
-**Sarah**: Excellent. Last question. You used Terraform. Where did you store your Terraform state? You didn't commit `terraform.tfstate` to Git, did you?
+**Sarah**: Where is Terraform state, and how do you avoid secret issues in the metadata DB connection?
 
-**Alex**: No, committing state files to Git is dangerous because they can contain plaintext secrets. I configured a remote Terraform backend. The state file is stored securely in an encrypted Amazon S3 bucket, and I used a DynamoDB table for state locking. This ensures that if two developers trigger the Infrastructure pipeline at the exact same time, DynamoDB locks the state so they don't corrupt the infrastructure.
+**Alex**: Remote state in S3 with DynamoDB locking — never commit `tfstate`. RDS uses Secrets Manager for the master password. We URL-encode that password when writing the Kubernetes `airflow-metadata` connection string; without that, special characters break URL parsing and you get `Invalid IPv6 URL` and CrashLoop on `wait-for-airflow-migrations`.
 
-**Sarah**: Well, Alex, I have to say I'm incredibly impressed. You clearly understand not just *how* to use these tools, but *why* they are the right choice for enterprise environments. You’ve passed with flying colors. Welcome to the team!
+**Sarah**: What would you change for real production scale — say tens of thousands of tasks a day?
 
-**Alex**: Thank you so much, Sarah! I can't wait to get started.
+**Alex**: Keep the same patterns, change the profile: more and larger worker nodes, higher `parallelism`, stronger Multi-AZ RDS, multi-NAT, private API endpoint with runners in the VPC, TLS ingress, monitoring and alerts, NetworkPolicies. The demo defaults and destroy workflow exist so people learn the architecture without leaving a bill running overnight.
+
+**Sarah**: Solid. You’ve shown you understand the trade-offs, not just the YAML. Thanks, Alex.
+
+**Alex**: Thank you, Sarah.
+
+---
+
+## Quick cheat sheet (if you freeze)
+
+| Topic | One-liner |
+| --- | --- |
+| Executor | KubernetesExecutor → one Pod per task |
+| Nodes | System (`m7i-flex.large`) vs workers (`t3.small`, scale 0→2) |
+| DAGs | Baked into SHA-tagged image; must be `*.py` |
+| Auth app CI | GitHub OIDC (classic + immutable `sub`) |
+| Auth pods → S3 | IRSA |
+| State | S3 + DynamoDB lock |
+| RDS secret | Secrets Manager + `urlencode` in K8s secret |
+| Cost | Destroy same day; EKS/NAT not Free Tier |
+| Capacity | Demo ≈ 10 concurrent tasks |

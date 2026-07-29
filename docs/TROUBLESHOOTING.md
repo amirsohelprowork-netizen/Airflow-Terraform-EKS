@@ -111,6 +111,23 @@ aws ec2 describe-instance-types --filters Name=free-tier-eligible,Values=true --
 
 ---
 
+## New DAG pushed but missing from the UI
+
+**Causes (common):**
+
+1. File under `dags/` does **not** end in `.py` — Airflow ignores it.
+2. Deploy workflow has not finished — DAGs are **baked into the image**, not git-synced. Wait for **Deploy Airflow to EKS** to go green after a `dags/**` push.
+3. UI cache / filters — refresh; check “All” DAGs, not only active filters.
+
+**Check on the cluster:**
+
+```bash
+kubectl -n airflow exec deploy/airflow-scheduler -c scheduler -- ls -la /opt/airflow/dags/
+kubectl -n airflow exec deploy/airflow-scheduler -c scheduler -- airflow dags list
+```
+
+---
+
 ## Still stuck?
 
 1. Confirm **Deploy Infrastructure** is green.
